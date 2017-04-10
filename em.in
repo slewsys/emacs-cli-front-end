@@ -1,0 +1,959 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2017 Andrew L. Moore
+#
+# This script runs emacs(1) and/or emacsclient(1) as appropriate per
+# given command-line arguments. For interactive sessions, emacs(1) is
+# started in daemon mode as necessary prior to running emacsclient(1).
+#
+# Invoking this script with multiple FILE arguments by default opens
+# FILEs in the top-most frame either sequentially, via the
+# `server-edit' (C-x #) command, or randomly, via `switch-to-buffer'
+# (C-x b).
+#
+# In addition to command-line options from emacs(1) and emacsclient(1),
+# the following options are recognized:
+#
+#   --buffer[=BUF]          Visit buffer BUF if given, otherwise `*scratch*'.
+#   --dired[=DIR]           Visit directory DIR if given, otherwise `.'.
+#   --markdown, -md[=FILE]  Visit FILE in mode \`markdown-live-preview-mode'.
+#   --other-frame           Visit FILEs in a new frame.
+#   --preload-files         Load FILEs in parallel, but visit one at a time.
+#   --many-frames           Visit FILEs in parallel, each in its own frame.
+#   --save-kill             Save buffers and kill emacs.
+#   --super-user            Visit FILEs with `root' privileges via tramp.
+#   --trace                 Trace execution of $pgm(1) script.
+#   --update-loaddefs[=DIR] Build DIR-loaddefs.el.
+#
+# Options may be abbreviated (e.g., `-ot' instead of `--other-frame')
+# provided they are unambiguous.
+#
+# If this script is invoked with either no command-line options or
+# emacsclient options only, then it runs as a background process and
+# switches focus to the Emacs server. Otherwise, Emacs-specific
+# command-line options (see `emacs --help') force a new Emacs process
+# to be run in the foreground, allowing this script to be invoked,
+# e.g., in batch mode within a Makefile.
+#
+# If the environment variable SSH_TTY is set, and the ssh client and server
+# differ, then `--tty' command-line option is enabled by default.
+#
+pgm=${0##*/}
+
+: ${AWK:='@AWK_CMD@'}
+: ${BASENAME:='@BASENAME_CMD@'}
+: ${DIRNAME:='@DIRNAME_CMD@'}
+: ${ED:='@ED_CMD@'}
+: ${EGREP:='@EGREP_CMD@'}
+: ${_EMACS:='@EMACS_CMD@'}
+: ${_EMACSCLIENT:='@EMACSCLIENT_CMD@'}
+: ${FIND:='@FIND_CMD@'}
+: ${HEAD:='@HEAD_CMD@'}
+: ${ID:='@ID_CMD@'}
+: ${KILL:='@KILL_CMD@'}
+: ${MKTEMP:='@MKTEMP_CMD@'}
+: ${OSASCRIPT:='@OSASCRIPT_CMD@'}
+: ${PKILL:='@PKILL_CMD@'}
+: ${PS:='@PS_CMD@'}
+: ${RM:='@RM_CMD@'}
+: ${SLEEP:='@SLEEP_CMD@'}
+: ${SORT:='@SORT_CMD@'}
+
+emacs_server_log="$HOME/.emacs.d/emacs-server.log"
+emacs_socket_directory='/var/folders'
+
+# Delay in seconds while buffer loads (system dependent).
+until_buffer_loads='0.5'
+
+# Initialize options
+allow_server_start='true'
+create_many_new_frames='false'
+create_new_frames='false'
+enable_trace='false'
+preload_files='false'
+super_user_prefix=''
+server_name=''
+background_op='&'
+frame_or_tty='--create-frame'
+argv=''
+argc=0
+
+# If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
+emacs_verify_kill='false'
+emacs_kill_timeout='10'
+
+# Default error message.
+error_diagnostic="Failed to connect to server.\n\
+To start the server in Emacs, type \\\"M-x server-start\\\"."
+
+
+usage ()
+{
+    $ED - <<EOF
+r !"$_EMACSCLIENT" --help
+1s;$_EMACSCLIENT;$pgm;
+# Option \`-f' is shadowed by Emacs option \`--funcall'
+/-f SERVER, /s;;;
+.,+j
+s;\\(SERVER\\).*\\(Set\\);\\1    \\2;
+\$-1c
+--buffer[=BUF]          Visit buffer BUF if given, otherwise \`*scratch*'.
+--dired[=DIR]           Visit directory DIR if given, otherwise \`.'.
+--many-frames           Visit FILEs in parallel, each in its own frame.
+--markdown, -md[=FILE]  Visit FILE in mode \`markdown-live-preview-mode'.
+--other-frame           Visit FILEs in a new frame.
+--preload-files         Load FILEs in parallel, but visit one at a time.
+--save-kill             Save buffers and kill emacs.
+--super-user            Visit FILEs with \`root' privileges via tramp.
+--trace                 Trace execution of $pgm(1) script.
+--update-loaddefs[=DIR] Build DIR-loaddefs.el from DIR/*.el.
+
+In addition to the above, the following Emacs-specific options are
+recognized. Most of these cannot be processed by an existing Emacs
+server, in which case a separate Emacs process is invoked.
+
+.
+# Mark last line of \`emacsclient --help'.
+\$kx
+r !"$_EMACS" --help
+# Remove head of \`emacs --help'.
+'x+;/options:\$/-d
+;s/.*options:\$/Emacs &/
+# Remove shadowed options
+/-q, --quiet/s;;--quiet    ;
+?--display?d
+/--terminal/s;, -t DEVICE; DEVICE    ;
+/, -nw/s;;     ;
+# Remove tail of \`emacs --help'.
+\$;?--parent?;\$--d
+# Merge last lines of \`emacsclient --help' and \`emacs --help'.
+'xm\$--
+s;\\.\$;, or alternatively,;
+i
+
+.
+,p
+q
+EOF
+
+}
+
+# Check shell interpreter version.
+interpreter-supported ()
+{
+    # $BASH_VERSION prerequisites (want: declare `-n' option)
+    declare -i BASH_MAJOR_PREREQ=4
+    declare -i BASH_MINOR_PREREQ=3
+    declare -i BASH_REVISION_PREREQ=0
+
+    if test ."$BASH_VERSION" = .''; then
+        echo "$pgm: Bash shell required." >&2
+        return 1
+    elif (( ${BASH_VERSINFO[0]} < BASH_MAJOR_PREREQ )) ||
+             (( ${BASH_VERSINFO[0]} == BASH_MAJOR_PREREQ &&
+                      ${BASH_VERSINFO[1]} < BASH_MINOR_PREREQ )) ||
+             (( ${BASH_VERSINFO[0]} == BASH_MAJOR_PREREQ &&
+                      ${BASH_VERSINFO[1]} == BASH_MINOR_PREREQ &&
+                      ${BASH_VERSINFO[2]} < BASH_REVISION_PREREQ )); then
+        echo "$pgm: $BASH_VERSION: Newer Bash shell required." >&2
+        return 1
+    fi
+    return 0
+}
+
+# Check command paths.
+environment-is-valid ()
+{
+    declare -i status=0
+    declare -a envlist=( AWK BASENAME DIRNAME ED EGREP _EMACS _EMACSCLIENT
+                         FIND HEAD ID KILL MKTEMP PKILL PS RM SLEEP SORT )
+
+    for var in ${envlist[*]} ; do
+        if test ! -x "${!var}"; then
+            echo "$pgm: ${!var}: Cannot exec" >&2
+            status+=1
+        fi
+    done
+    return $status
+}
+
+# Check emacs version.
+emacs-is-current ()
+{
+    declare -i EMACS_MAJOR_PREREQ=25
+    declare -i status=0
+    declare emacs_version
+
+    for var in _EMACS _EMACSCLIENT; do
+        emacs_version=$(
+            ${!var} --version |
+                $HEAD -1 |
+                $AWK '{ print $NF }'
+                  )
+        if (( ${emacs_version%%.*} < EMACS_MAJOR_PREREQ )); then
+            echo "$pgm: $emacs_version: Newer ${!var} required." >&2
+            status+=1
+        fi
+    done
+    return $status
+}
+
+emacs-is-running ()
+{
+    $PKILL -0 -u "$($ID -u)" -f "${_EMACS##*/}.*${server_name}" >/dev/null 2>&1
+}
+
+emacsclient-is-running ()
+{
+    $PKILL -0 -u "$($ID -u)" -f "${_EMACSCLIENT##*/}.*${server_name}"         \
+           >/dev/null 2>&1
+}
+
+create-frame-or-tty ()
+{
+    if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+        if ! emacsclient-is-running || $create_new_frames; then
+            echo $frame_or_tty
+        fi
+    fi
+}
+
+# Set up environment for emacs, as opposed to emacsclient.
+switch-to-emacs ()
+{
+    # Run in foreground.
+    background_op=''
+
+    # Report exit codes (see function `raise-exception' below).
+    error_diagnostic='emacs: Exited with error: $error_status'
+}
+
+raise-exception ()
+{
+    error_status=$?
+    echo "Exception raised in: $@" >&3
+    eval printf \"$pgm: $error_diagnostic\\n\" >&3
+    if test -s "$stderr_cache"; then
+        printf "%s\n" "$(< "$stderr_cache" )" >&3
+    fi
+    exit $error_status
+}
+
+start-emacs-server ()
+{
+    declare -i i=0
+    declare first_diag='true'
+
+    echo -n "Launching Server... " >&3
+
+    # Removing any left-over sockets
+    $FIND "$emacs_socket_directory" -name emacs$($ID -u) -type d 2>/dev/null |
+        while read dir; do
+            if test -S "${dir}/${server_name}"; then
+                $RM -f "${dir}/${server_name}"
+            fi
+        done
+
+    "$_EMACS" --daemon="${server_name}" >"$emacs_server_log" 2>&1 &
+    wait $! ||
+        raise-exception 'server start'
+
+    # Verify that server is accessible via emacsclient(1).
+    "$_EMACSCLIENT" -s "${server_name}" --no-wait --eval 't' >/dev/null ||
+        raise-exception 'server access'
+
+    # Print Emacs startup errors/warnings to console.
+    $EGREP -iA 7 'warning|error' "$emacs_server_log" |
+        while read diag; do
+            if $first_diag; then
+                echo >&3
+                first_diag='false'
+            fi
+            echo "$diag" >&3
+        done
+
+}
+
+# real-path: Return absolute path of file or directory, if given,
+# otherwise current directory. Neither file nor directory need exist.
+real-path ()
+{
+    declare file
+    printf -v file '%q' "$1"
+
+    declare dir=$1
+    declare realdir
+    declare base
+
+    if test ! -d "$dir"; then
+        dir=$($DIRNAME $file)
+        base=$($BASENAME $file)
+    fi
+
+    # If "Permission denied" or "No such file or directory"...
+    if ! realdir=$(cd "${dir:-'.'}" >/dev/null 2>&1 && pwd -P); then
+
+        # If $dir is absolute...
+        if [[ ."$dir" =~ ^\./.* ]]; then
+
+            # Use $dir as is.
+            realdir=$dir
+
+        # If $dir is relative...
+        else
+
+            # Prefix $dir with $(pwd).
+            realdir="$(pwd -P)/${dir}"
+        fi
+    fi
+
+    # If $base empty or not defined (because $file is directory)...
+    if test ."$base" = .''; then
+        echo "${realdir%%+(/)}"
+    else
+        echo "${realdir%%+(/)}/${base}"
+    fi
+}
+
+# absolute-path: Return path of file relative to dir if given,
+# otherwise current directory. If file is not given or is null, return
+# path of (non-null) dir if given, otherwise current directory.
+absolute-path ()
+{
+    declare file=$1
+    declare dir=$2
+
+    if test ."$file" = .'' -a ."$dir" = .''; then
+        real-path .
+    elif [[ ."$file" =~ ^\./.* ]] || test ."$dir" = .''; then
+        real-path "$file"
+    else
+        real-path "${dir}/${file}"
+    fi
+}
+
+# Parse command-line options for requests.
+option-requests ()
+{
+    declare buffer=''
+    declare directory=''
+    declare editor=''
+    declare file=''
+    declare -a endpoint=()
+
+    # If no arguments, then edit buffer `*scratch*' by default
+    if (( $# == 0 )); then
+        set -- --buffer='*scratch*'
+        OPTIND+=1
+    fi
+
+    # SSH session.
+    if test ."$SSH_TTY" != .''; then
+
+        endpoint=( $SSH_CONNECTION )
+
+        # Client and server differ...
+        if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
+
+            # No frames, by default.
+            preload_files='false'
+            create_new_frames='false'
+            create_many_new_frames='false'
+            frame_or_tty='--tty'
+
+            # Run in foreground.
+            background_op=''
+        fi
+    fi
+
+    # Aggregate options
+    while true; do
+        case "$1" in
+
+            # Ignore alternate editor
+            -a*|--a*)
+                # EDITOR given as --alternate-editor=EDITOR
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    editor=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                    # EDITOR given as second, possibly null, argument.
+                else
+                    editor=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+                ;;
+
+            # Extension option `--buffer [BUF]'; open buffer BUF.
+            --bu*|-bu*)
+                argv[argc++]='--eval'
+
+                # BUFFER given as --buffer=BUFFER
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    buffer=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                # BUFFER given as second, possibly null, argument.
+                else
+                    buffer=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                argv[argc]='(switch-to-buffer '
+                argv[argc]+="(if (fboundp 'buffer-name-matching-pattern) "
+                argv[argc]+='(buffer-name-matching-pattern "'
+                argv[argc]+=${buffer:-'\\*scratch\\*'}
+                argv[argc]+='") "'
+                argv[argc]+=$(printf '%q' "${buffer:-'*scratch*'}")
+                argv[argc++]+='"))'
+                ;;
+
+            # Extension option `--dired [DIR]'; open DIR in dired mode.
+            --dired*|-dired*)
+                argv[argc++]='--eval'
+
+                # DIR given as --dired=DIR
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    directory=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                # DIR given as second, possibly null, argument.
+                else
+                    directory=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                # If DIR null, default to current directory.
+                argv[argc]='(dired "'
+                argv[argc]+=$(printf '%q' "${directory:='.'}")
+                argv[argc++]+='")'
+                ;;
+
+            # Extension option `--many-frames'; visit files in
+            # parallel, each in its own frame.
+            --man*|-man*)
+                preload_files='true'
+                create_new_frames='true'
+                create_many_new_frames='true'
+                frame_or_tty='--create-frame'
+                OPTIND+=1
+                shift
+                ;;
+
+            # Extension option `--markdown FILE': open FILE in mode
+            # `markdown-live-preview-mode'.
+            --mar*|-md)
+                argv[argc++]='--eval'
+
+                # FILE given as --markdown=FILE
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    file=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                # FILE given as second, possibly null, argument.
+                else
+                    file=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                # Open FILE, invoke `markdown-live-preview-mode'.
+                argv[argc]='(with-current-buffer '
+                argv[argc]+='(find-file "'
+                argv[argc]+=$(printf '%q' "${file:='.'}")
+                argv[argc]+='") '
+                argv[argc]+="(unless (eq major-mode 'markdown-mode)"
+                argv[argc]+='  (markdown-mode)) '
+                argv[argc]+='(markdown-live-preview-mode 1) '
+                argv[argc++]+='(delete-other-windows))'
+                ;;
+
+            # Extension option `--other-frame'; visit file in new frame.
+            --ot*|-ot*)
+                preload_files='false'
+                create_new_frames='true'
+                create_many_new_frames='false'
+                frame_or_tty='--create-frame'
+                OPTIND+=1
+                shift
+                ;;
+
+            # Extension option `--preload'; load files in parallel.
+            --pr*|-pr*)
+                preload_files='true'
+                OPTIND+=1
+                shift
+                ;;
+
+            # Extension option `--save-kill'.
+            --sa*|-sa*)
+                argv[argc++]='--eval'
+                argv[argc++]='(save-buffers-kill-emacs)'
+                allow_server_start='false'
+                emacs_verify_kill='true'
+                OPTIND+=1
+                shift
+                ;;
+
+            # Extension option `--super-user'; with super-user
+            # privileges via tramp.
+            --su*|-su*)
+                super_user_prefix='/sudo:root@localhost:'
+                OPTIND+=1
+                shift
+                ;;
+
+            # Extension option `--trace'.
+            --tr*|-tr*)
+                OPTIND+=1
+                shift
+
+                enable_trace='true'
+                trap ': Line \#"$LINENO"' debug
+                set -x
+                ;;
+
+            # Extension option `--update-loaddefs [DIR]'
+            --up*|-up*)
+                argv[argc++]='-batch'
+                argv[argc++]='-q'
+                argv[argc++]='--eval'
+
+                # DIR given as --update-loaddefs=DIR
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    directory=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                # DIR given as second, possibly null, argument.
+                else
+                    directory=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                if test ."$directory" = .''; then
+                    directory='.'
+                fi
+
+                # Expand $directory path in canonical form.
+                directory=$(absolute-path "$directory")
+
+                # Prefix autoload filename with last element of $directory path.
+                loaddefs=$($BASENAME "$directory")
+                loaddefs+='-loaddefs.el'
+
+                # Update directory autoloads to `$(basename DIR)-loaddefs.el'.
+                argv[argc]='(let ((generated-autoload-file "'
+                argv[argc]+=$(printf '%q' "${directory}/${loaddefs}")
+                argv[argc]+='")) '
+                argv[argc]+='(update-directory-autoloads "'
+                argv[argc]+=$(printf '%q' "$directory")
+                argv[argc++]+='"))'
+
+                # Emacs-specific argument, so invoke emacs.
+                _EMACSCLIENT="$_EMACS"
+                ;;
+
+            # Emacs option `-f' shadows Emacsclient variation of
+            # `--server-file' option.
+            --bac*|-bac*|-bg|                                                 \
+                --bo*|-bo*|-bd|-bw|                                           \
+                --ch*|-ch*|--co*|-co*|--cu*|-cu*|-cr|                         \
+                --di*|-di*|-L|                                                \
+                -F|--fun*|-fun*|-f|                                           \
+                --fo[nr]*|-fo[nr]*|-fn|-fg|                                   \
+                --g*|-g*|-ib|                                                 \
+                --l[oi]*|-l[oi]*|-l|-lsp|                                     \
+                --mo*|-mo*|-ms|                                               \
+                --na*|-na*|                                                   \
+                --pa*|-pa*|--se*|-se*|                                        \
+                --t[ei]*|-t[ei]*|-T|-t|                                       \
+                --u*|-u*|-u|                                                  \
+                --x*)
+
+                # OPTARG given as --opt=OPTARG.
+                if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
+                    argv[argc++]=${BASH_REMATCH[1]}
+                    argv[argc++]=${BASH_REMATCH[2]}
+                    OPTIND+=1
+                    shift
+
+                # OPTARG given as second, possibly null, argument.
+                else
+                    argv[argc++]=$1
+                    argv[argc++]=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                # Emacs-specific argument, so invoke emacs.
+                _EMACSCLIENT="$_EMACS"
+                ;;
+
+            # Emacs `--daemon', `--new-daemon' and `--old-daemon' options.
+            # Emacslcient `-s' and `--socket' options.
+            --da*|-da*|--new*|-new*|--ol*|-ol*|--so*|-so*|-s)
+
+                # OPTARG given as --opt=OPTARG.
+                if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
+                    argv[argc++]=${BASH_REMATCH[1]}
+                    argv[argc++]=${BASH_REMATCH[2]}
+                    server_name=${BASH_REMATCH[2]}
+                    OPTIND+=1
+                    shift
+
+                # OPTARG given as second, possibly null, argument.
+                else
+                    argv[argc++]=$1
+                    argv[argc++]=$2
+                    server_name=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+                ;;
+
+            # Emacs option `-q' shadows Emacsclient short `--quiet' option.
+            --bas*|-bas*|-D|                                                  \
+                --bat*|-bat*|                                                 \
+                --ful*|-ful*|-fh|-fs|-fw|                                     \
+                --ic*|-ic*|--max*|-max*|-mn80|                                \
+                --no-*|-no-*|-nbc|-nbi|-nl|-nsl|-q|                           \
+                --qu*|-qu*|-Q|                                                \
+                --re*|-r|-rv|                                                 \
+                --ve*|-ve*|-vb)
+                argv[argc++]=$1
+                OPTIND+=1
+                shift
+
+                # Emacs-specific argument, so invoke emacs.
+                _EMACSCLIENT="$_EMACS"
+                ;;
+
+            # Emacsclient option `--create-frame'.
+            --cr*|-cr*|-c)
+                create_new_frames='true'
+                frame_or_tty='--create-frame'
+                OPTIND+=1
+                shift
+                ;;
+
+            # Emacs option `--debug-init'.
+            --de*|-de*)
+                argv[argc++]=$1
+                OPTIND+=1
+                shift
+
+                enable_trace='true'
+                trap ': Line \#"$LINENO"' debug
+                set -x
+
+                # Emacs-specific argument, so invoke emacs.
+                _EMACSCLIENT="$_EMACS"
+                ;;
+
+            # Emacs/emacsclient option `--eval'.
+            --ex*|-ex*|--ev*|-ev*)
+                argv[argc++]=$1
+                argv[argc++]=$2
+                OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                shift $(( $# == 1 ? 1 : 2 ))
+
+                # Run in foreground.
+                background_op=''
+                ;;
+
+            # Emacs option `--visit FILE'.
+            --fi*|-fi*|--vi*|-vi*)
+                argv[argc++]='--eval'
+
+                # FILE given as --visit=FILE
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    file=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                # FILE given as second, possibly null, argument.
+                else
+                    file=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                argv[argc]='(find-file "'
+                argv[argc]+=$file
+                argv[argc++]+='")'
+                ;;
+
+            # Emacsclient option `--frame'
+            --fr*|-fr*|-F)
+                # OPTARG given as --opt=OPTARG.
+                if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
+                    argv[argc++]=${BASH_REMATCH[1]}
+                    argv[argc++]=${BASH_REMATCH[2]}
+                    OPTIND+=1
+                    shift
+
+                # OPTARG given as second, possibly null, argument.
+                else
+                    argv[argc++]=$1
+                    argv[argc++]=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+                ;;
+
+            # Print usage, then return.
+            --h*|-h*)
+                usage
+                return 1
+                ;;
+
+            # Emacs option `--insert FILE'.
+            # NB: This command only makes sense if the current buffer is
+            #     set, e.g.:
+            #
+            #         $ em --visit file1 --insert file2
+            #
+            #     or
+            #
+            #         $ em --buffer '*scratch*' --insert file
+            #
+            --in*|-in*)
+                argv[argc++]='--eval'
+
+                # FILE given as --insert=FILE
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    file=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                # FILE given as second, possibly null, argument.
+                else
+                    file=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                argv[argc]='(insert-file-contents "'
+                argv[argc]+=$(printf '%q' "$file")
+                argv[argc++]+='" nil nil nil nil)'
+                ;;
+
+            # Extended Emacs option `--kill'.
+            --k*|-k*)
+                argv[argc++]='--eval'
+
+                # ARG given as --kill=ARG
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    kbinput=${BASH_REMATCH[1]}
+                    OPTIND+=1
+                    shift
+
+                # ARG given as second, possibly null, argument.
+                else
+                    kbinput=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+
+                argv[argc]='(kill-emacs '
+                argv[argc]+=${kbinput:-0}
+                argv[argc++]+=')'
+                allow_server_start='false'
+                emacs_verify_kill='true'
+                ;;
+
+            # Emacsclient option `--no-wait'.
+            --no-wa*|-n)
+                argv[argc++]=$1
+                OPTIND+=1
+                shift
+                ;;
+
+            # Emacsclient option `-t' shadows Emacs short `--terminal' option.
+            --tt*|-tt*|-nw|-t)
+                preload_files='false'
+                create_new_frames='false'
+                create_many_new_frames='false'
+                frame_or_tty='--tty'
+                OPTIND+=1
+                shift
+
+                # Run in foreground.
+                background_op=''
+                ;;
+
+            -V|--version)
+                $ED - <<EOF
+r !"$_EMACSCLIENT" --version
+s/[[:space:]]\{1,\}/ and GNU Emacs frontend /p
+q
+EOF
+                return 1
+                ;;
+
+            +[0-9]*|-*)
+                argv[argc++]="$1"
+                OPTIND+=1
+                shift
+                ;;
+
+            *)
+                break
+                ;;
+        esac
+
+        # No more arguments?
+        if (( $# == 0 )); then
+            break
+        fi
+    done
+
+    if test ."$server_name" = .''; then
+        server_name="server$(id -u)"
+        argv[argc++]='-s'
+        argv[argc++]="$server_name"
+    fi
+}
+
+# Any prerequisites not met...
+if ! interpreter-supported ||
+        ! environment-is-valid ||
+        ! emacs-is-current; then
+    exit $?
+
+# Only help or version requested.
+elif ! option-requests "$@"; then
+    exit 0
+fi
+
+shift $(( OPTIND - 1 ))
+
+# Careful not to invoke Emacs via Emacsclient.
+unset EMACS
+unset ALTERNATE_EDITOR
+
+# Ensure that Emacs config directory exists for logging.
+if test ! -d ~/.emacs.d; then
+    mkdir ~/.emacs.d
+    touch ~/.emacs.d/auto-insert.el
+fi
+
+trap 'test -f "$stderr_cache" && $RM -f "$stderr_cache"; exit $error_status'   \
+     0 1 2 15 20
+
+exec 3>&2
+
+stderr_cache=$($MKTEMP "${TMP:=/tmp}/emacsclient.XXXXX") || {
+    error_diagnostic="Failed to create temp file"
+    raise-exception 'mktemp'
+}
+
+# $enable_trace || exec 1>/dev/null 2>"$stderr_cache"
+$enable_trace || exec 2>"$stderr_cache"
+
+if test ."$_EMACSCLIENT" = ."$_EMACS"; then
+    switch-to-emacs "$1"
+elif $allow_server_start && ! emacs-is-running; then
+    start-emacs-server
+fi
+
+# Sequentially open files...
+if ! $preload_files; then
+
+    if test -n "$(echo ${argv[@]})" -o -n "$(echo $@)"; then
+        i=0
+        for f in "$@"; do
+            if [[ ! ."$f" =~ ^\./ ]]; then
+                argx[i++]="$super_user_prefix/$PWD/$f"
+            elif [[ ! ."$f" =~ ^\./root@ ]]; then
+                argx[i++]="$super_user_prefix/$f"
+            else
+                argx[i++]="$f"
+            fi
+        done
+        eval '{
+            "$_EMACSCLIENT" $(create-frame-or-tty)                            \
+                            "${argv[@]}"                                      \
+                            "${argx[@]}" ||
+            raise-exception sequence
+        }' $background_op
+        $SLEEP $until_buffer_loads
+    fi
+
+# Simultaneously open files...
+else
+
+    # each in new frame
+    if $create_many_new_frames; then
+        for f in "$@"; do
+            if [[ ! ."$f" =~ ^\./ ]]; then
+                argx="$super_user_prefix/$PWD/$f"
+            elif [[ ! ."$f" =~ ^\./root@ ]]; then
+                argx="$super_user_prefix/$f"
+            else
+                argx="$f"
+            fi
+            eval '{
+                "$_EMACSCLIENT" $(create-frame-or-tty)                        \
+                                "${argv[@]}"                                  \
+                                "${argx[@]}" ||
+                raise-exception many frames
+            }' $background_op
+            $SLEEP $until_buffer_loads
+        done
+    else
+        for f in "$@"; do
+            if [[ ! ."$f" =~ ^\./ ]]; then
+                argx="$super_user_prefix/$PWD/$f"
+            elif [[ ! ."$f" =~ ^\./root@ ]]; then
+                argx="$super_user_prefix/$f"
+            else
+                argx="$f"
+            fi
+
+            eval '{
+                "$_EMACSCLIENT" $(create-frame-or-tty)                        \
+                                "${argv[@]}"                                  \
+                                "${argx[@]}" ||
+                raise-exception preload
+            }' $background_op
+            $SLEEP $until_buffer_loads
+            create_new_frames='false'
+        done
+    fi
+
+    # No file args...
+    if [[ $# == 0 ]]; then
+        eval '{
+                "$_EMACSCLIENT" $(create-frame-or-tty)                        \
+                                "${argv[@]}" ||
+                raise-exception no file args
+            }' $background_op
+    fi
+fi
+
+if test ."$background_op" != .'' -a -x "$OSASCRIPT"; then
+    $OSASCRIPT -e 'tell application "System Events" to set frontmost of process "Emacs" to true'
+    $allow_server_start && echo >&3
+fi
+
+if $emacs_verify_kill; then
+    echo "Stopping Server..." >&3
+    $SLEEP $emacs_kill_timeout
+    $PKILL -9 -u $($ID -u) -f "${_EMACS}.*${server_name}"
+fi
+
+#
+# Local variables:
+# mode: shell-script
+# End:
+#
