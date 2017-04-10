@@ -180,7 +180,7 @@ environment-is-valid ()
 # Check emacs version.
 emacs-is-current ()
 {
-    declare -i EMACS_MAJOR_PREREQ=25
+    declare -i EMACS_MAJOR_PREREQ=24
     declare -i status=0
     declare emacs_version
 
