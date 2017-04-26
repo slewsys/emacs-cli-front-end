@@ -17,6 +17,7 @@
 #   --buffer[=BUF]          Visit buffer BUF if given, otherwise `*scratch*'.
 #   --dired[=DIR]           Visit directory DIR if given, otherwise `.'.
 #   --markdown, -md[=FILE]  Visit FILE in mode \`markdown-live-preview-mode'.
+#   --new-frame             Visit FILEs in a new frame.
 #   --other-frame           Visit FILEs in a new frame.
 #   --preload-files         Load FILEs in parallel, but visit one at a time.
 #   --many-frames           Visit FILEs in parallel, each in its own frame.
@@ -51,6 +52,7 @@ pgm=${0##*/}
 : ${HEAD:='@HEAD_CMD@'}
 : ${ID:='@ID_CMD@'}
 : ${KILL:='@KILL_CMD@'}
+: ${MKDIR:='@MKDIR_CMD@'}
 : ${MKTEMP:='@MKTEMP_CMD@'}
 : ${OSASCRIPT:='@OSASCRIPT_CMD@'}
 : ${PKILL:='@PKILL_CMD@'}
@@ -58,9 +60,11 @@ pgm=${0##*/}
 : ${RM:='@RM_CMD@'}
 : ${SLEEP:='@SLEEP_CMD@'}
 : ${SORT:='@SORT_CMD@'}
+: ${TOUCH:='@TOUCH_CMD@'}
 
-emacs_server_log="$HOME/.emacs.d/emacs-server.log"
-emacs_socket_directory='/var/folders'
+emacs_confdir="$HOME/.emacs.d"
+emacs_server_log="${emacs_confdir}/emacs-server.log"
+emacs_socket_directory="${TMPDIR:-/tmp}"
 
 # Delay in seconds while buffer loads (system dependent).
 until_buffer_loads='0.5'
@@ -180,7 +184,7 @@ environment-is-valid ()
 # Check emacs version.
 emacs-is-current ()
 {
-    declare -i EMACS_MAJOR_PREREQ=24
+    declare -i EMACS_MAJOR_PREREQ=25
     declare -i status=0
     declare emacs_version
 
@@ -475,6 +479,16 @@ option-requests ()
                 argv[argc++]+='(delete-other-windows))'
                 ;;
 
+            # Extension option `--new-frame'; visit file in new frame.
+            --new*|-new*)
+                preload_files='false'
+                create_new_frames='true'
+                create_many_new_frames='false'
+                frame_or_tty='--create-frame'
+                OPTIND+=1
+                shift
+                ;;
+
             # Extension option `--other-frame'; visit file in new frame.
             --ot*|-ot*)
                 preload_files='false'
@@ -514,6 +528,13 @@ option-requests ()
             --tr*|-tr*)
                 OPTIND+=1
                 shift
+
+                # Any prerequisites not met...
+                if ! interpreter-supported ||
+                        ! environment-is-valid ||
+                        ! emacs-is-current; then
+                    exit $?
+                fi
 
                 enable_trace='true'
                 trap ': Line \#"$LINENO"' debug
@@ -562,6 +583,16 @@ option-requests ()
                 _EMACSCLIENT="$_EMACS"
                 ;;
 
+            # Short version of Emacsclient option `--suppress-output',  `-u',
+            # shadows short version of Emacs option `--user' option.
+            # Note that long Emacsclient option `--suppress-output' is
+            # itself shadowed by extension option `--super-user'.
+            -u|-supp*|--supp*)
+                argv[argc++]=$1
+                OPTIND+=1
+                shift
+                ;;
+
             # Emacs option `-f' shadows Emacsclient variation of
             # `--server-file' option.
             --bac*|-bac*|-bg|                                                 \
@@ -576,7 +607,7 @@ option-requests ()
                 --na*|-na*|                                                   \
                 --pa*|-pa*|--se*|-se*|                                        \
                 --t[ei]*|-t[ei]*|-T|-t|                                       \
-                --u*|-u*|-u|                                                  \
+                --u*|-us*|                                                    \
                 --x*)
 
                 # OPTARG given as --opt=OPTARG.
@@ -600,7 +631,9 @@ option-requests ()
 
             # Emacs `--daemon', `--new-daemon' and `--old-daemon' options.
             # Emacslcient `-s' and `--socket' options.
-            --da*|-da*|--new*|-new*|--ol*|-ol*|--so*|-so*|-s)
+            # Emacsclient `--parent-id' option.
+            --da*|-da*|--new-*|-new-*|--ol*|-ol*|                             \
+                --pa*|-pa*|--so*|-so*|-s)
 
                 # OPTARG given as --opt=OPTARG.
                 if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
@@ -618,6 +651,13 @@ option-requests ()
                     OPTIND+=$(( $# == 1 ? 1 : 2 ))
                     shift $(( $# == 1 ? 1 : 2 ))
                 fi
+                ;;
+
+            # Emacsclient option `--no-wait'.
+            --no-wa*|-n)
+                argv[argc++]=$1
+                OPTIND+=1
+                shift
                 ;;
 
             # Emacs option `-q' shadows Emacsclient short `--quiet' option.
@@ -639,7 +679,9 @@ option-requests ()
 
             # Emacsclient option `--create-frame'.
             --cr*|-cr*|-c)
+                preload_files='false'
                 create_new_frames='true'
+                create_many_new_frames='false'
                 frame_or_tty='--create-frame'
                 OPTIND+=1
                 shift
@@ -771,13 +813,6 @@ option-requests ()
                 emacs_verify_kill='true'
                 ;;
 
-            # Emacsclient option `--no-wait'.
-            --no-wa*|-n)
-                argv[argc++]=$1
-                OPTIND+=1
-                shift
-                ;;
-
             # Emacsclient option `-t' shadows Emacs short `--terminal' option.
             --tt*|-tt*|-nw|-t)
                 preload_files='false'
@@ -794,7 +829,7 @@ option-requests ()
             -V|--version)
                 $ED - <<EOF
 r !"$_EMACSCLIENT" --version
-s/[[:space:]]\{1,\}/ and GNU Emacs frontend /p
+s/[[:space:]]\{1,\}/ and GNU Emacs front end /p
 q
 EOF
                 return 1
@@ -817,21 +852,15 @@ EOF
         fi
     done
 
-    if test ."$server_name" = .''; then
-        server_name="server$(id -u)"
+    if test ."$server_name" = .'' -a ."$_EMACSCLIENT" != ."$_EMACS"; then
+        server_name="server$($ID -u)"
         argv[argc++]='-s'
         argv[argc++]="$server_name"
     fi
 }
 
-# Any prerequisites not met...
-if ! interpreter-supported ||
-        ! environment-is-valid ||
-        ! emacs-is-current; then
-    exit $?
-
 # Only help or version requested.
-elif ! option-requests "$@"; then
+if ! option-requests "$@"; then
     exit 0
 fi
 
@@ -842,17 +871,19 @@ unset EMACS
 unset ALTERNATE_EDITOR
 
 # Ensure that Emacs config directory exists for logging.
-if test ! -d ~/.emacs.d; then
-    mkdir ~/.emacs.d
-    touch ~/.emacs.d/auto-insert.el
+if test ! -d "$emacs_confdir"; then
+    $MKDIR "$emacs_confdir"
+    $TOUCH "$emacs_confdir"/auto-insert.el
 fi
 
-trap 'test -f "$stderr_cache" && $RM -f "$stderr_cache"; exit $error_status'   \
-     0 1 2 15 20
+trap 'if test -f "$stderr_cache"; then
+        $RM -f "$stderr_cache";
+        exit $error_status;
+      fi' 0 1 2 15 20
 
 exec 3>&2
 
-stderr_cache=$($MKTEMP "${TMP:=/tmp}/emacsclient.XXXXX") || {
+stderr_cache=$($MKTEMP "${TMPDIR:-/tmp}/emacsclient.XXXXX") || {
     error_diagnostic="Failed to create temp file"
     raise-exception 'mktemp'
 }

@@ -4,5 +4,8 @@
 #
 # Process this file with automake to create Makefile.in
 
-bin_PROGRAMS = em
-em_SOURCES =
+bin_SCRIPTS = em
+AM_DEFAULT_SOURCE_EXT = .in
+
+man_MANS = $(bin_SCRIPTS:=.1)
+EXTRA_DIST = $(man_MANS)
