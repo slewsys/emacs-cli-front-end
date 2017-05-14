@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2017 Andrew L. Moore
+# Copyright © 2017 Andrew L. Moore
 #
 # This script runs emacs(1) and/or emacsclient(1) as appropriate per
 # given command-line arguments. For interactive sessions, emacs(1) is
@@ -39,7 +39,7 @@
 # If the environment variable SSH_TTY is set, and the ssh client and server
 # differ, then `--tty' command-line option is enabled by default.
 #
-pgm=${0##*/}
+shell_script=${0##*/}
 
 : ${AWK:='@AWK_CMD@'}
 : ${BASENAME:='@BASENAME_CMD@'}
@@ -95,7 +95,7 @@ usage ()
 {
     $ED - <<EOF
 r !"$_EMACSCLIENT" --help
-1s;$_EMACSCLIENT;$pgm;
+1s;$_EMACSCLIENT;$shell_script;
 # Option \`-f' is shadowed by Emacs option \`--funcall'
 /-f SERVER, /s;;;
 .,+j
@@ -109,7 +109,7 @@ s;\\(SERVER\\).*\\(Set\\);\\1    \\2;
 --preload-files         Load FILEs in parallel, but visit one at a time.
 --save-kill             Save buffers and kill emacs.
 --super-user            Visit FILEs with \`root' privileges via tramp.
---trace                 Trace execution of $pgm(1) script.
+--trace                 Trace execution of $shell_script(1) script.
 --update-loaddefs[=DIR] Build DIR-loaddefs.el from DIR/*.el.
 
 In addition to the above, the following Emacs-specific options are
@@ -151,7 +151,7 @@ interpreter-supported ()
     declare -i BASH_REVISION_PREREQ=0
 
     if test ."$BASH_VERSION" = .''; then
-        echo "$pgm: Bash shell required." >&2
+        echo "$shell_script: Bash shell required." >&2
         return 1
     elif (( ${BASH_VERSINFO[0]} < BASH_MAJOR_PREREQ )) ||
              (( ${BASH_VERSINFO[0]} == BASH_MAJOR_PREREQ &&
@@ -159,7 +159,7 @@ interpreter-supported ()
              (( ${BASH_VERSINFO[0]} == BASH_MAJOR_PREREQ &&
                       ${BASH_VERSINFO[1]} == BASH_MINOR_PREREQ &&
                       ${BASH_VERSINFO[2]} < BASH_REVISION_PREREQ )); then
-        echo "$pgm: $BASH_VERSION: Newer Bash shell required." >&2
+        echo "$shell_script: $BASH_VERSION: Newer Bash shell required." >&2
         return 1
     fi
     return 0
@@ -174,7 +174,7 @@ environment-is-valid ()
 
     for var in ${envlist[*]} ; do
         if test ! -x "${!var}"; then
-            echo "$pgm: ${!var}: Cannot exec" >&2
+            echo "$shell_script: ${!var}: Cannot exec" >&2
             status+=1
         fi
     done
@@ -195,7 +195,7 @@ emacs-is-current ()
                 $AWK '{ print $NF }'
                   )
         if (( ${emacs_version%%.*} < EMACS_MAJOR_PREREQ )); then
-            echo "$pgm: $emacs_version: Newer ${!var} required." >&2
+            echo "$shell_script: $emacs_version: Newer ${!var} required." >&2
             status+=1
         fi
     done
@@ -236,7 +236,7 @@ raise-exception ()
 {
     error_status=$?
     echo "Exception raised in: $@" >&3
-    eval printf \"$pgm: $error_diagnostic\\n\" >&3
+    eval printf \"$shell_script: $error_diagnostic\\n\" >&3
     if test -s "$stderr_cache"; then
         printf "%s\n" "$(< "$stderr_cache" )" >&3
     fi
@@ -972,8 +972,14 @@ else
     fi
 fi
 
-if test ."$background_op" != .'' -a -x "$OSASCRIPT"; then
-    $OSASCRIPT -e 'tell application "System Events" to set frontmost of process "Emacs" to true'
+if test ."$background_op" != .''; then
+    if test -x "$OSASCRIPT"; then
+        emacs_frontmost='tell application "System Events" '
+        emacs_frontmost+='to set frontmost of process "Emacs" to true'
+        $OSASCRIPT -e "$emacs_frontmost"
+    fi
+
+    # Append newline after "Waiting for Emacs..."
     $allow_server_start && echo >&3
 fi
 
@@ -986,5 +992,6 @@ fi
 #
 # Local variables:
 # mode: shell-script
+# coding: utf-8-unix
 # End:
 #
