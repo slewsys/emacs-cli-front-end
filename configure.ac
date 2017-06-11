@@ -7,7 +7,8 @@ AM_INIT_AUTOMAKE()
 
 # Checks for programs.
 
-AC_PATH_PROG([AWK_CMD], [awk])
+AC_PATH_PROGS([AWK_CMD], [gawk awk])
+
 AC_PATH_PROG([BASENAME_CMD], [basename])
 AC_PATH_PROG([DIRNAME_CMD], [dirname])
 AC_PATH_PROG([ED_CMD], [ed])
