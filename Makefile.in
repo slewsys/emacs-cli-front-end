@@ -598,7 +598,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic mostlyclean-am
+clean-am: clean-generic clean-local mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -670,9 +670,9 @@ uninstall-man: uninstall-man1
 .MAKE: install-am install-strip
 
 .PHONY: all all-am am--refresh check check-am clean clean-generic \
-	cscopelist-am ctags-am dist dist-all dist-bzip2 dist-gzip \
-	dist-lzip dist-shar dist-tarZ dist-xz dist-zip distcheck \
-	distclean distclean-generic distcleancheck distdir \
+	clean-local cscopelist-am ctags-am dist dist-all dist-bzip2 \
+	dist-gzip dist-lzip dist-shar dist-tarZ dist-xz dist-zip \
+	distcheck distclean distclean-generic distcleancheck distdir \
 	distuninstallcheck dvi dvi-am html html-am info info-am \
 	install install-am install-binSCRIPTS install-data \
 	install-data-am install-dvi install-dvi-am install-exec \
@@ -686,6 +686,9 @@ uninstall-man: uninstall-man1
 
 .PRECIOUS: Makefile
 
+
+clean-local:
+	rm -f em *~ ./#*
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

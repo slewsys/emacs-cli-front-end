@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# -*- coding: utf-8 -*-
+#
 # Copyright © 2017 Andrew L. Moore
 #
 # This script runs emacs(1) and/or emacsclient(1) as appropriate per
@@ -363,7 +365,7 @@ option-requests ()
             preload_files='false'
             create_new_frames='false'
             create_many_new_frames='false'
-            frame_or_tty='--tty'
+            frame_or_tty='-nw'
 
             # Run in foreground.
             background_op=''
@@ -629,10 +631,10 @@ option-requests ()
                 _EMACSCLIENT="$_EMACS"
                 ;;
 
-            # Emacs `--daemon', `--new-daemon' and `--old-daemon' options.
+            # Emacs `--daemon', `--fg-daemon' and `--bg-daemon' options.
             # Emacslcient `-s' and `--socket' options.
             # Emacsclient `--parent-id' option.
-            --da*|-da*|--new-*|-new-*|--ol*|-ol*|                             \
+            --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                             \
                 --pa*|-pa*|--so*|-so*|-s)
 
                 # OPTARG given as --opt=OPTARG.
@@ -818,7 +820,7 @@ option-requests ()
                 preload_files='false'
                 create_new_frames='false'
                 create_many_new_frames='false'
-                frame_or_tty='--tty'
+                frame_or_tty='-nw'
                 OPTIND+=1
                 shift
 
