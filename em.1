@@ -148,7 +148,7 @@ Visit directory DIR if given, otherwise
 .B \-\-many-frames
 Visit FILEs in parallel, each in its own frame.
 .TP
-.B \-\-markdown, \-md\fR[=\fPFILE\fR]
+.B \-\-markdown, \-md\fR=\fPFILE
 Visit FILE in mode
 .I markdown-live-preview-mode\fR.
 .TP
@@ -171,6 +171,12 @@ user privileges via tramp.
 Trace execution of
 .B em
 script.
+.TP
+.B \-\-two-way-merge\fR=\fPFILE1\fR,\fPFILE2\fR[,\fPOUTPUT-FILE\fR]
+Call
+.I emerge-files
+with arguments  FILE1 and FILE2.
+Save output to OUTPUT-FILE if given.
 .TP
 .B \-\-update-loaddefs\fR[=\fPDIR\fR]
 Build autoload file
