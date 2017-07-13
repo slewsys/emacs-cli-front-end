@@ -1,4 +1,4 @@
-# Em, an Emacs CLI front end
+# Em, CLI front end for Emacs and emacsclient
 The __em__ script runs `emacs(1)` and/or `emacsclient(1)` as appropriate per
 given command-line arguments. For interactive sessions, `emacs(1)` is
 started in daemon mode as necessary prior to running `emacsclient(1)`.
@@ -24,6 +24,7 @@ the following options are recognized:
   --trace                     | Trace execution of __em__ script.
   --two-way-merge=F1,F2[,OUT] | Call __emerge-files__ with file args F1 and F2.
   --update-loaddefs[=DIR]     | Build autoload file _DIR-loaddefs.el_.
+  --wait                      | Run `emacsclient(1)` in foreground.
 
 Options may be abbreviated (e.g., `-new` instead of `--new-frame`)
 provided they are unambiguous.
