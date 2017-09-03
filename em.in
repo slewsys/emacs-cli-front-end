@@ -18,17 +18,20 @@
 #
 #   --buffer[=BUF]          Visit buffer BUF if given, otherwise `*scratch*'.
 #   --dired[=DIR]           Visit directory DIR if given, otherwise `.'.
-#   --markdown, -md[=FILE]  Visit FILE in mode \`markdown-live-preview-mode'.
+#   --markdown, -md=FILE  Visit FILE in mode \`markdown-live-preview-mode'.
 #   --new-frame             Visit FILEs in a new frame.
-#   --other-frame           Visit FILEs in a new frame.
 #   --preload-files         Load FILEs in parallel, but visit one at a time.
 #   --many-frames           Visit FILEs in parallel, each in its own frame.
-#   --save-kill             Save buffers and kill emacs.
+#   --save-kill             Save buffers and kill Emacs and Emacs server.
 #   --super-user            Visit FILEs with `root' privileges via tramp.
 #   --trace                 Trace execution of $pgm(1) script.
+#   --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
+#                           Call \`emerge-files' with arguments FILE1 and
+#                           FILE2.  Save output to OUTPUT-FILE if given.
 #   --update-loaddefs[=DIR] Build DIR-loaddefs.el.
+#   --wait                  Run emacsclient in foreground.
 #
-# Options may be abbreviated (e.g., `-ot' instead of `--other-frame')
+# Options may be abbreviated (e.g., `-new' instead of `--new-frame')
 # provided they are unambiguous.
 #
 # If this script is invoked with either no command-line options or
@@ -77,6 +80,7 @@ create_many_new_frames='false'
 create_new_frames='false'
 enable_trace='false'
 preload_files='false'
+super_user=''
 super_user_prefix=''
 server_name=''
 background_op='&'
@@ -103,16 +107,23 @@ r !"$_EMACSCLIENT" --help
 .,+j
 s;\\(SERVER\\).*\\(Set\\);\\1    \\2;
 \$-1c
+
+Extended options:
+
 --buffer[=BUF]          Visit buffer BUF if given, otherwise \`*scratch*'.
 --dired[=DIR]           Visit directory DIR if given, otherwise \`.'.
 --many-frames           Visit FILEs in parallel, each in its own frame.
---markdown, -md[=FILE]  Visit FILE in mode \`markdown-live-preview-mode'.
---other-frame           Visit FILEs in a new frame.
+--markdown, -md=FILE    Visit FILE in mode \`markdown-live-preview-mode'.
+--new-frame             Visit FILEs in a new frame.
 --preload-files         Load FILEs in parallel, but visit one at a time.
---save-kill             Save buffers and kill emacs.
+--save-kill             Save buffers and kill Emacs and Emacs server.
 --super-user            Visit FILEs with \`root' privileges via tramp.
 --trace                 Trace execution of $shell_script(1) script.
+--two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
+                        Call \`emerge-files' with arguments FILE1 and FILE2.
+                        Save output to OUTPUT-FILE if given.
 --update-loaddefs[=DIR] Build DIR-loaddefs.el from DIR/*.el.
+--wait                  Run emacsclient in foreground.
 
 In addition to the above, the following Emacs-specific options are
 recognized. Most of these cannot be processed by an existing Emacs
@@ -183,7 +194,7 @@ environment-is-valid ()
     return $status
 }
 
-# Check emacs version.
+# Check Emacs version.
 emacs-is-current ()
 {
     declare -i EMACS_MAJOR_PREREQ=25
@@ -224,14 +235,14 @@ create-frame-or-tty ()
     fi
 }
 
-# Set up environment for emacs, as opposed to emacsclient.
+# Set up environment for Emacs, as opposed to emacsclient.
 switch-to-emacs ()
 {
     # Run in foreground.
     background_op=''
 
     # Report exit codes (see function `raise-exception' below).
-    error_diagnostic='emacs: Exited with error: $error_status'
+    error_diagnostic='Emacs: Exited with error: $error_status'
 }
 
 raise-exception ()
@@ -473,7 +484,7 @@ option-requests ()
                 # Open FILE, invoke `markdown-live-preview-mode'.
                 argv[argc]='(with-current-buffer '
                 argv[argc]+='(find-file "'
-                argv[argc]+=$(printf '%q' "${file:='.'}")
+                argv[argc]+=$(printf '%q' "${file:='*.md'}")
                 argv[argc]+='") '
                 argv[argc]+="(unless (eq major-mode 'markdown-mode)"
                 argv[argc]+='  (markdown-mode)) '
@@ -521,7 +532,14 @@ option-requests ()
             # Extension option `--super-user'; with super-user
             # privileges via tramp.
             --su*|-su*)
-                super_user_prefix='/sudo:root@localhost:'
+
+                # USER given as --su=USER
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    super_user=${BASH_REMATCH[1]}
+                else
+                    super_user='root'
+                fi
+                super_user_prefix="/sudo:${super_user}@localhost:"
                 OPTIND+=1
                 shift
                 ;;
@@ -541,6 +559,60 @@ option-requests ()
                 enable_trace='true'
                 trap ': Line \#"$LINENO"' debug
                 set -x
+                ;;
+
+            # Extension option `--two-way-merge=FILE1,FILE1[,OUTPUT-FILE]':
+            # open FILEs via Emacs function `emerge-files'.
+            --tw*|-tw|--2*|-2*)
+                argv[argc++]='--eval'
+
+                # FILEs given as --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
+                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                    files=${BASH_REMATCH[1]}
+                    file1=${files%%,*}
+                    files=${files#*,}
+                    file2=${files%%,*}
+                    if test ."$file2" != ."$files"; then
+                        file3=${files#*,}
+                    fi
+                    OPTIND+=1
+                    shift
+
+                # FILEs given as second and third, possibly null, arguments.
+                else
+                    file1=$2
+                    file2=$3
+                    OPTIND+=$(( $# > 2 ? 3 : ( $# > 1 ? 2 : 1 ) ))
+                    shift $(( $# > 2 ? 3 : ( $# > 1 ? 2 : 1 ) ))
+                fi
+
+                if test ."$file1" = .'' -o ."$file2" = .'' -o \
+                        ! -f "$file1" -o ! -f "$file2"; then
+                    usage
+                    exit 1
+                fi
+
+                # Eval `emerge-files' on FILEs.
+                argv[argc]='(emerge-files '
+                if test ."$file3" != .''; then
+                    argv[argc]+='nil "'
+                else
+                    argv[argc]+='1 "'
+                fi
+                argv[argc]+=$(printf '%q' "$file1")
+                argv[argc]+='" "'
+                argv[argc]+=$(printf '%q' "$file2")
+                if test ."$file3" != .''; then
+                    argv[argc]+='" "'
+                    argv[argc]+=$(printf '%q' "$file3")
+                    argv[argc]+='" '
+                else
+                    argv[argc]+='" nil '
+                fi
+                argv[argc]+="(and (fboundp 'frame-size-ediff) "
+                argv[argc]+="     'frame-size-ediff) "
+                argv[argc]+="(and (fboundp 'frame-size-default) "
+                argv[argc++]+="   'frame-size-default))"
                 ;;
 
             # Extension option `--update-loaddefs [DIR]'
@@ -581,13 +653,20 @@ option-requests ()
                 argv[argc]+=$(printf '%q' "$directory")
                 argv[argc++]+='"))'
 
-                # Emacs-specific argument, so invoke emacs.
+                # Emacs-specific argument, so invoke emacs(1).
                 _EMACSCLIENT="$_EMACS"
+                ;;
+
+            # Extension option `--wait'
+            --wa*|-w*)
+                background_op=''
+                OPTIND+=1
+                shift
                 ;;
 
             # Short version of Emacsclient option `--suppress-output',  `-u',
             # shadows short version of Emacs option `--user' option.
-            # Note that long Emacsclient option `--suppress-output' is
+            # Note that long emacsclient option `--suppress-output' is
             # itself shadowed by extension option `--super-user'.
             -u|-supp*|--supp*)
                 argv[argc++]=$1
@@ -595,7 +674,7 @@ option-requests ()
                 shift
                 ;;
 
-            # Emacs option `-f' shadows Emacsclient variation of
+            # Emacs option `-f' shadows emacsclient variation of
             # `--server-file' option.
             --bac*|-bac*|-bg|                                                 \
                 --bo*|-bo*|-bd|-bw|                                           \
@@ -627,13 +706,13 @@ option-requests ()
                     shift $(( $# == 1 ? 1 : 2 ))
                 fi
 
-                # Emacs-specific argument, so invoke emacs.
+                # Emacs-specific argument, so invoke Emacs.
                 _EMACSCLIENT="$_EMACS"
                 ;;
 
             # Emacs `--daemon', `--fg-daemon' and `--bg-daemon' options.
-            # Emacslcient `-s' and `--socket' options.
-            # Emacsclient `--parent-id' option.
+            # emacslcient `-s' and `--socket' options.
+            # emacsclient `--parent-id' option.
             --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                             \
                 --pa*|-pa*|--so*|-so*|-s)
 
@@ -655,14 +734,14 @@ option-requests ()
                 fi
                 ;;
 
-            # Emacsclient option `--no-wait'.
+            # emacsclient option `--no-wait'.
             --no-wa*|-n)
                 argv[argc++]=$1
                 OPTIND+=1
                 shift
                 ;;
 
-            # Emacs option `-q' shadows Emacsclient short `--quiet' option.
+            # Emacs option `-q' shadows emacsclient short `--quiet' option.
             --bas*|-bas*|-D|                                                  \
                 --bat*|-bat*|                                                 \
                 --ful*|-ful*|-fh|-fs|-fw|                                     \
@@ -675,11 +754,11 @@ option-requests ()
                 OPTIND+=1
                 shift
 
-                # Emacs-specific argument, so invoke emacs.
+                # Emacs-specific argument, so invoke Emacs.
                 _EMACSCLIENT="$_EMACS"
                 ;;
 
-            # Emacsclient option `--create-frame'.
+            # emacsclient option `--create-frame'.
             --cr*|-cr*|-c)
                 preload_files='false'
                 create_new_frames='true'
@@ -699,7 +778,7 @@ option-requests ()
                 trap ': Line \#"$LINENO"' debug
                 set -x
 
-                # Emacs-specific argument, so invoke emacs.
+                # Emacs-specific argument, so invoke Emacs.
                 _EMACSCLIENT="$_EMACS"
                 ;;
 
@@ -736,7 +815,7 @@ option-requests ()
                 argv[argc++]+='")'
                 ;;
 
-            # Emacsclient option `--frame'
+            # emacsclient option `--frame'
             --fr*|-fr*|-F)
                 # OPTARG given as --opt=OPTARG.
                 if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
@@ -815,7 +894,7 @@ option-requests ()
                 emacs_verify_kill='true'
                 ;;
 
-            # Emacsclient option `-t' shadows Emacs short `--terminal' option.
+            # emacsclient option `-t' shadows Emacs short `--terminal' option.
             --tt*|-tt*|-nw|-t)
                 preload_files='false'
                 create_new_frames='false'
@@ -868,9 +947,9 @@ fi
 
 shift $(( OPTIND - 1 ))
 
-# Careful not to invoke Emacs via Emacsclient.
-unset EMACS
+# Ignore emacsclient alternate editor.
 unset ALTERNATE_EDITOR
+# unset EMACS
 
 # Ensure that Emacs config directory exists for logging.
 if test ! -d "$emacs_confdir"; then
@@ -906,11 +985,9 @@ if ! $preload_files; then
         i=0
         for f in "$@"; do
             if [[ ! ."$f" =~ ^\./ ]]; then
-                argx[i++]="$super_user_prefix/$PWD/$f"
-            elif [[ ! ."$f" =~ ^\./root@ ]]; then
-                argx[i++]="$super_user_prefix/$f"
+                argx[i++]="${super_user_prefix}$PWD/$f"
             else
-                argx[i++]="$f"
+                argx[i++]="${super_user_prefix}$f"
             fi
         done
         eval '{
@@ -927,13 +1004,12 @@ else
 
     # each in new frame
     if $create_many_new_frames; then
+        i=0
         for f in "$@"; do
             if [[ ! ."$f" =~ ^\./ ]]; then
-                argx="$super_user_prefix/$PWD/$f"
-            elif [[ ! ."$f" =~ ^\./root@ ]]; then
-                argx="$super_user_prefix/$f"
+                argx="${super_user_prefix}$PWD/$f"
             else
-                argx="$f"
+                argx="${super_user_prefix}$f"
             fi
             eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
@@ -946,13 +1022,10 @@ else
     else
         for f in "$@"; do
             if [[ ! ."$f" =~ ^\./ ]]; then
-                argx="$super_user_prefix/$PWD/$f"
-            elif [[ ! ."$f" =~ ^\./root@ ]]; then
-                argx="$super_user_prefix/$f"
+                argx="${super_user_prefix}$PWD/$f"
             else
-                argx="$f"
+                argx="${super_user_prefix}$f"
             fi
-
             eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
                                 "${argv[@]}"                                  \
