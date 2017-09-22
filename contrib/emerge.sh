@@ -11,7 +11,7 @@ emerge ()
 
     for arg; do
         if test -f "$arg"; then
-            file+=( $(printf '%q' "$arg") )
+            file+=( "$(printf '%q' "$arg")" )
         else
             args+=( "$arg" )
         fi
@@ -23,10 +23,12 @@ emerge ()
             return 1
             ;;
         2)
-            $EM "${args[@]}" --two-way-merge=${file[0]},${file[1]}
+            eval $EM "${args[@]}" \
+                 --two-way-merge="${file[0]}","${file[1]}"
             ;;
         3)
-            $EM "${args[@]}" --two-way-merge=${file[0]},${file[1]},${file[2]}
+            eval $EM "${args[@]}" \
+                 --two-way-merge="${file[0]}","${file[1]}","${file[2]}"
             ;;
         *)
             echo "$usage"

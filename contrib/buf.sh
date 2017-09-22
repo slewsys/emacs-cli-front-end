@@ -12,7 +12,7 @@ buf ()
         if [[ "$arg" =~ ^-.* ]]; then
             args+=( "$arg" )
         else
-            bufs+=( $(printf '%q' "$arg") )
+            bufs+=( "$(printf '%q' "$arg")" )
         fi
     done
 
@@ -20,7 +20,7 @@ buf ()
         $EM "${args[@]}"
     else
         for b in "${bufs[@]}"; do
-            $EM "${args[@]}" --buf $b
+            eval $EM "${args[@]}" --buf "$b"
         done
     fi
 }

@@ -10,14 +10,14 @@ md ()
 
     for arg; do
         if test -f "$arg"; then
-            files+=( $(printf '%q' "$arg") )
+            files+=( "$(printf '%q' "$arg")" )
         else
             args+=( "$arg" )
         fi
     done
 
     for f in "${files[@]}"; do
-        $EM "${args[@]}" --markdown $f
+        eval $EM "${args[@]}" --markdown "$f"
     done
 
 }

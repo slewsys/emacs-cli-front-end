@@ -2,9 +2,9 @@ Q: Why am I getting "WARNING: 'automake-1.15' is missing on your system."?
 A: git(1) does not preserve timestamps, so autoconf(1) is trying to
    rebuild aclocal.m4 and friends. To prevent this, run touch(1):
 
-      $ touch configure.ac aclocal.m4 configure Makefile.am Makefile.in
-      $ ./configure
-      $ make && sudo make install
+     $ touch configure.ac aclocal.m4 configure Makefile.am Makefile.in
+     $ ./configure
+     $ make && sudo make install
 
 Q: Why doesn't GNUPG passphrase prompt in terminal work (e.g., Magit mode
    attempting to sign a GIT commit)?
@@ -16,18 +16,19 @@ A: Emacs can become detached from the terminal, especially in a graphical
    loopback mode in gpg-agent by adding two lines to
    ~/.gnupg/gpg-agent.conf:
 
-allow-emacs-pinentry
-allow-loopback-pinentry
+     allow-emacs-pinentry
+     allow-loopback-pinentry
 
    reload gpg-agent:
 
-$ gpgconf --reload gpg-agent
+     $ gpgconf --reload gpg-agent
 
    then add two lines to ~/.emacs:
 
-(setq epa-pinentry-mode 'loopback)
-(pinentry-start)
+     (setq epa-pinentry-mode 'loopback)
+     (pinentry-start)
 
    and restart Emacs. Finally, thank Oliver Scholz for providing
    this answer at:
-https://emacs.stackexchange.com/questions/32881/enabling-minibuffer-pinentry-with-emacs-25-and-gnupg-2-1-on-ubuntu-xenial
+
+     https://emacs.stackexchange.com/questions/32881/enabling-minibuffer-pinentry-with-emacs-25-and-gnupg-2-1-on-ubuntu-xenial

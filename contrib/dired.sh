@@ -10,7 +10,7 @@ dired ()
 
     for arg; do
         if test -d "$arg"; then
-            dirs+=( $(printf '%q' "$arg") )
+            dirs+=( "$(printf '%q' "$arg")" )
         else
             args+=( "$arg" )
         fi
@@ -21,6 +21,6 @@ dired ()
     fi
 
     for d in "${dirs[@]}"; do
-        $EM "${args[@]}" --dired $d
+        eval $EM "${args[@]}" --dired "$d"
     done
 }

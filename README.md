@@ -38,3 +38,6 @@ e.g., in batch mode within a Makefile.
 
 If the environment variable `SSH_TTY` is set, and the SSH client and server
 differ, then the command-line option`--tty`  is enabled by default.
+
+To kill the Emacs server, use `em --save-kill`, which can be shortened
+to `em -sa`.
