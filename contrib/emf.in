@@ -1,0 +1,130 @@
+#!/usr/bin/env ruby
+#
+# @(#) emf
+#
+# Last modified: 2017-09-29 <sysdev@slewsys.org>
+#
+# This script Emacs evals a specified Lisp function.
+#
+require 'optparse'
+require 'optparse/time'
+require 'ostruct'
+require 'pp'
+require 'shellwords'
+
+script_name = $0.sub(/.*\//, '')
+
+class Emf
+  attr_accessor :options
+
+  EMACS = '@EMACS_CMD@'
+  LISP = '@EMACS_LISP_DIR@'
+  EMACS_LISP = "#{LISP}/emacs-lisp"
+  CEDET = "#{LISP}/cedet"
+  SEMANTIC = "#{CEDET}/semantic"
+  BOVINE = "#{SEMANTIC}/bovine"
+
+  VERSION = '1.4'
+
+  def initialize (script_name)
+    @options = OpenStruct.new
+    @script_name = script_name
+    @options.load_path = [LISP, EMACS_LISP, CEDET, SEMANTIC, BOVINE]
+    @options.require_feature = []
+    @options.elisp_expr = []
+    @options.verbose = false
+  end
+
+  def parse (argv)
+    OptionParser.new do |opts|
+      opts.banner = "Usage: #{@script_name} [OPTIONS] ELisp-FUNC [...]"
+      opts.separator "Available OPTIONS:"
+
+      # Add to load path
+      opts.on("-e", "--eval ELisp-EXPR", "Eval ELisp-EXPR") do |expr|
+        @options.elisp_expr << expr
+      end
+
+      # Add to load path
+      opts.on("-l", "--load-path PATH", "Load PATH") do |path|
+        @options.load_path << path
+      end
+
+      # Mandatory argument.
+      opts.on("-r", "--require-feature FEATURE", "Require FEATURE") do |feature|
+        @options.require_feature << feature
+      end
+
+      # Boolean switch.
+      opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+        @options.verbose = v
+      end
+
+      #       opts.separator ""
+      #       opts.separator "Common options:"
+
+      # No argument, shows at tail.  This will print an options summary.
+      # Try it and see!
+      opts.on_tail("-h", "--help", "Show this message") do
+        puts opts
+        exit
+      end
+
+      # Another typical switch to print the version.
+      opts.on_tail("-V", "--version", "Show version") do
+        puts @script_name.capitalize + " " + VERSION
+        exit
+      end
+
+    end.parse(argv)
+  end
+end
+
+if __FILE__ == $0
+  emf = Emf.new(script_name)
+  argv_rem = emf.parse(ARGV)
+
+  expr_args = ''
+  emf.options.elisp_expr.each do |expr|
+    expr_args += " --eval #{expr.shellescape}"
+  end
+
+  load_args = ''
+  emf.options.load_path.each do |path|
+    case File.ftype(path)
+    when "file"
+      load_args += " --load " + path.shellescape
+    when "directory"
+      load_args += " --directory " + path.shellescape
+    else
+      puts "#{script_name}: #{path}: Unable to load"
+    end
+  end
+
+  require_args = ''
+  emf.options.require_feature.each do |feature|
+    require_args += " --eval '(require '\\''#{feature})'"
+  end
+
+  emacs = Emf::EMACS + ' -Q --batch'
+  emacs += load_args + require_args + expr_args
+  # puts "argv_rem: #{argv_rem}" if emf.options.verbose
+
+  funcall_cmd = ''
+  (argv_rem == [] ? ['save-buffers-kill-terminal'] : argv_rem).each do |arg|
+    if funcall_cmd.empty?
+      funcall_cmd = "#{emacs} -f #{arg.shellescape}"
+    else
+      funcall_cmd += " #{arg.shellescape}"
+    end
+  end
+  puts funcall_cmd if emf.options.verbose
+  system(funcall_cmd)
+end
+
+#
+# Local variables:
+# mode: ruby
+# coding: utf-8-unix
+# End:
+#

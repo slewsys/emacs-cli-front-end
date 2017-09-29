@@ -600,6 +600,7 @@ ID_CMD
 HEAD_CMD
 FIND_CMD
 EMACSCLIENT_CMD
+EMACS_LISP_DIR
 EMACS_CMD
 EGREP_CMD
 ED_CMD
@@ -2597,6 +2598,11 @@ fi
 # If Emacs.app on case-insensitive filesystem...
 if test ."$EMACS_CMD" = ."/Applications/Emacs.app/Contents/MacOS/emacs"; then
   EMACS_CMD='/Applications/Emacs.app/Contents/MacOS/Emacs'
+  EMACS_LISP_DIR=/Applications/Emacs.app/Contents/Resources/lisp
+
+else
+  EMACS_LISP_DIR=${exec_prefix}/share/emacs/resources/lisp
+
 fi
 
 
@@ -3167,7 +3173,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files em Makefile"
+ac_config_files="$ac_config_files Makefile em contrib/emc contrib/emf"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -3886,8 +3892,10 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "em") CONFIG_FILES="$CONFIG_FILES em" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "em") CONFIG_FILES="$CONFIG_FILES em" ;;
+    "contrib/emc") CONFIG_FILES="$CONFIG_FILES contrib/emc" ;;
+    "contrib/emf") CONFIG_FILES="$CONFIG_FILES contrib/emf" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

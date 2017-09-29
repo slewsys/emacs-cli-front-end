@@ -1,0 +1,129 @@
+#!/usr/bin/env ruby
+#
+# @(#) emc
+#
+# This script Emacs byte-compiles files given on command line or
+# via NUL-delimited names on standard input.
+#
+require 'optparse'
+require 'optparse/time'
+require 'ostruct'
+require 'shellwords'
+
+script_name = $0.sub(/.*\//, '')
+
+class Emc
+  attr_accessor :options
+
+  EMACS = '@EMACS_CMD@'
+  LISP = '@EMACS_LISP_DIR@'
+  EMACS_LISP = "#{LISP}/emacs-lisp"
+  CEDET = "#{LISP}/cedet"
+  SEMANTIC = "#{CEDET}/semantic"
+  BOVINE = "#{SEMANTIC}/bovine"
+
+  VERSION = '1.4'
+
+
+  def initialize (script_name)
+    @options = OpenStruct.new
+    @script_name = script_name
+    @options.load_path = [LISP, EMACS_LISP, CEDET, SEMANTIC, BOVINE]
+    @options.require_feature = []
+    @options.elisp_expr = []
+    @options.verbose = false
+  end
+
+  def parse (argv)
+    OptionParser.new do |opts|
+      opts.banner = "Usage: #{@script_name} [OPTIONS] FILE [...]"
+      opts.separator "Available OPTIONS:"
+
+      # Add to load path
+      opts.on("-e", "--eval ELisp-EXPR", "Eval ELisp-EXPR") do |expr|
+        @options.elisp_expr << expr
+      end
+
+      # Add to load path
+      opts.on("-l", "--load-path PATH", "Load PATH") do |path|
+        @options.load_path << path
+      end
+
+      # Mandatory argument.
+      opts.on("-r", "--require-feature FEATURE", "Require FEATURE") do |feature|
+        @options.require_feature << feature
+      end
+
+      # Boolean switch.
+      opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+        @options.verbose = v
+      end
+
+
+      # Another typical switch to print the version.
+      opts.on("-V", "--version", "Show version") do
+        puts @script_name.capitalize + " " + VERSION
+        exit
+      end
+
+      opts.on_tail("-h", "--help", "Show this message") do
+        puts opts
+        exit
+      end
+
+    end.parse!(argv)
+  end
+end
+
+if __FILE__ == $0
+  emc = Emc.new(script_name)
+  if (argv_rem = emc.parse(ARGV)) == []
+    emc.parse(["--help"])
+  end
+
+  expr_args = ''
+  emc.options.elisp_expr.each do |expr|
+    expr_args += " --eval #{expr.shellescape}"
+  end
+
+  load_args = ''
+  emc.options.load_path.each do |path|
+    begin
+       filetype = File.ftype(path)
+    rescue
+       filetype = File.ftype(path + '.el.gz')
+    end
+    case filetype
+    when "file"
+      load_args += " --load " + path.shellescape
+    when "directory"
+      load_args += " --directory " + path.shellescape
+    else
+      puts "#{script_name}: #{path}: Unable to load"
+    end
+  end
+
+  require_args = ''
+  emc.options.require_feature.each do |feature|
+    require_args += " --eval '(require '\\''#{feature})'"
+  end
+
+  emacs = Emc::EMACS + ' -Q --batch'
+  emacs += load_args + require_args + expr_args
+  # puts "argv_rem: #{argv_rem}" if emc.options.verbose
+  argv_rem.each do |arg|
+    (file_dir, file_name) = File.split(File.expand_path(arg).chomp)
+    compile_cmd = "cd #{file_dir.shellescape} && #{emacs} "
+    compile_cmd += "--eval '(byte-compile-file \"#{file_name}\")'"
+
+    puts compile_cmd if emc.options.verbose
+    system(compile_cmd)
+  end
+end
+
+#
+# Local variables:
+# mode: ruby
+# coding: utf-8-unix
+# End:
+#

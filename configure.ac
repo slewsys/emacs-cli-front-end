@@ -21,6 +21,11 @@ AC_PATH_PROG([EMACS_CMD], [emacs], [],
 # If Emacs.app on case-insensitive filesystem...
 if test ."$EMACS_CMD" = ."/Applications/Emacs.app/Contents/MacOS/emacs"; then
   EMACS_CMD='/Applications/Emacs.app/Contents/MacOS/Emacs'
+  AC_SUBST([EMACS_LISP_DIR],
+    [/Applications/Emacs.app/Contents/Resources/lisp])
+else
+  AC_SUBST([EMACS_LISP_DIR],
+    [${EMACS_CMD/\/bin\/emacs}/share/emacs/resources/lisp])
 fi
 
 AC_ARG_VAR([EMACSCLIENT_CMD], [emacsclient])
@@ -41,6 +46,9 @@ AC_PATH_PROGS([SLEEP_CMD], [gsleep sleep])
 AC_PATH_PROG([SORT_CMD], [sort])
 AC_PATH_PROG([TOUCH_CMD], [touch])
 
-AC_CONFIG_FILES([em
-Makefile])
+AC_CONFIG_FILES([Makefile
+ em
+ contrib/emc
+ contrib/emf
+ ])
 AC_OUTPUT
