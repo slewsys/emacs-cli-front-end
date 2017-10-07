@@ -48,5 +48,5 @@ file _/etc/hosts_, use `em -su /etc/hosts`.
 To kill the Emacs server, use `em --save-kill`, which can be shortened
 to `em -sa`.
 
-See also [FAQ](https://github.com/slewsys/emacs-cli-front-end/FAQ.md)
+See also [FAQ](https://github.com/slewsys/emacs-cli-front-end/blob/master/FAQ.md)
 for troubleshooting.
