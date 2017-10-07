@@ -36,8 +36,17 @@ command-line options (see `emacs --help`) force a new Emacs process
 to be run in the foreground, allowing this script to be invoked,
 e.g., in batch mode within a Makefile.
 
-If the environment variable `SSH_TTY` is set, and the SSH client and server
+If the environment variable `SSH_TTY` is set and the SSH client and server
 differ, then the command-line option`--tty`  is enabled by default.
+
+Similarly, if environment variable `SUDO_USER` is set and not equal to
+`USER`, then command-line option `--tty` is enabled by default. Rather
+than override this behavior, generally a better solution is to use
+`tramp` mode. For example, if not logged in as user _root_, to edit
+file _/etc/hosts_, use `em -su /etc/hosts`.
 
 To kill the Emacs server, use `em --save-kill`, which can be shortened
 to `em -sa`.
+
+See also [FAQ](https://github.com/slewsys/emacs-cli-front-end/FAQ.md)
+for troubleshooting.

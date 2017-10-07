@@ -102,7 +102,7 @@ DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
-CONFIG_CLEAN_FILES = em contrib/emc contrib/emf
+CONFIG_CLEAN_FILES = em contrib/emc contrib/emf contrib/set-tmpdir.sh
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -158,8 +158,8 @@ MANS = $(man_MANS)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/em.in \
 	$(top_srcdir)/contrib/emc.in $(top_srcdir)/contrib/emf.in \
-	AUTHORS COPYING ChangeLog INSTALL NEWS README TODO depcomp \
-	install-sh missing
+	$(top_srcdir)/contrib/set-tmpdir.sh.in AUTHORS COPYING \
+	ChangeLog INSTALL NEWS README TODO depcomp install-sh missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -198,6 +198,7 @@ EMACSCLIENT_CMD = @EMACSCLIENT_CMD@
 EMACS_CMD = @EMACS_CMD@
 EMACS_LISP_DIR = @EMACS_LISP_DIR@
 FIND_CMD = @FIND_CMD@
+GETCONF_CMD = @GETCONF_CMD@
 HEAD_CMD = @HEAD_CMD@
 ID_CMD = @ID_CMD@
 INSTALL = @INSTALL@
@@ -231,6 +232,7 @@ SLEEP_CMD = @SLEEP_CMD@
 SORT_CMD = @SORT_CMD@
 STRIP = @STRIP@
 TOUCH_CMD = @TOUCH_CMD@
+UNAME_CMD = @UNAME_CMD@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
@@ -316,6 +318,8 @@ em: $(top_builddir)/config.status $(srcdir)/em.in
 contrib/emc: $(top_builddir)/config.status $(top_srcdir)/contrib/emc.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 contrib/emf: $(top_builddir)/config.status $(top_srcdir)/contrib/emf.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+contrib/set-tmpdir.sh: $(top_builddir)/config.status $(top_srcdir)/contrib/set-tmpdir.sh.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
@@ -694,7 +698,7 @@ uninstall-man: uninstall-man1
 
 
 clean-local:
-	rm -f em *~ ./#* ./contrib/emc ./contrib/emf
+	rm -f em *~ ./#* ./contrib/emc ./contrib/emf ./contrib/darwin_tmpdir.sh
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

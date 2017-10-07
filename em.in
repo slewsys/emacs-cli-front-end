@@ -383,6 +383,19 @@ option-requests ()
         fi
     fi
 
+    # SUDO session.
+    if test ."$SUDO_USER" != .'' -a ."$SUDO_USER" != "$USER"; then
+
+        # No frames, by default.
+        preload_files='false'
+        create_new_frames='false'
+        create_many_new_frames='false'
+        frame_or_tty='-nw'
+
+        # Run in foreground.
+        background_op=''
+    fi
+
     # Aggregate options
     while true; do
         case "$1" in
@@ -713,7 +726,7 @@ option-requests ()
             # Emacs `--daemon', `--fg-daemon' and `--bg-daemon' options.
             # emacslcient `-s' and `--socket' options.
             # emacsclient `--parent-id' option.
-            --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                             \
+            --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                               \
                 --pa*|-pa*|--so*|-so*|-s)
 
                 # OPTARG given as --opt=OPTARG.

@@ -1,3 +1,7 @@
+em
+contrib/emc
+contrib/emf
+contrib/set-tmpdir.sh
 autom4te.cache
 config.log
 config.status

@@ -33,6 +33,7 @@ AC_PATH_PROG([EMACSCLIENT_CMD], [emacsclient], [],
   [/Applications/Emacs.app/Contents/MacOS/bin$PATH_SEPARATOR$PATH])
 
 AC_PATH_PROG([FIND_CMD], [find])
+AC_PATH_PROG([GETCONF_CMD], [getconf])
 AC_PATH_PROG([HEAD_CMD], [head])
 AC_PATH_PROG([ID_CMD], [id])
 AC_PATH_PROG([KILL_CMD], [kill])
@@ -45,10 +46,12 @@ AC_PATH_PROG([RM_CMD], [rm])
 AC_PATH_PROGS([SLEEP_CMD], [gsleep sleep])
 AC_PATH_PROG([SORT_CMD], [sort])
 AC_PATH_PROG([TOUCH_CMD], [touch])
+AC_PATH_PROG([UNAME_CMD], [uname])
 
 AC_CONFIG_FILES([Makefile
  em
  contrib/emc
  contrib/emf
+ contrib/set-tmpdir.sh
  ])
 AC_OUTPUT
