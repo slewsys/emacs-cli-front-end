@@ -23,9 +23,12 @@ if test ."$EMACS_CMD" = ."/Applications/Emacs.app/Contents/MacOS/emacs"; then
   EMACS_CMD='/Applications/Emacs.app/Contents/MacOS/Emacs'
   AC_SUBST([EMACS_LISP_DIR],
     [/Applications/Emacs.app/Contents/Resources/lisp])
+elif test ."$prefix" = .'NONE'; then
+  AC_SUBST([EMACS_LISP_DIR],
+    [${ac_default_prefix}/share/emacs/resources/lisp])
 else
   AC_SUBST([EMACS_LISP_DIR],
-    [${EMACS_CMD/\/bin\/emacs}/share/emacs/resources/lisp])
+    [${prefix}/share/emacs/resources/lisp])
 fi
 
 AC_ARG_VAR([EMACSCLIENT_CMD], [emacsclient])
