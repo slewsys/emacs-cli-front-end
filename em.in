@@ -181,9 +181,13 @@ interpreter-supported ()
 # Check command paths.
 environment-is-valid ()
 {
+
+
+
     declare -i status=0
     declare -a envlist=( AWK BASENAME DIRNAME ED EGREP _EMACS _EMACSCLIENT
-                         FIND HEAD ID KILL MKTEMP PKILL PS RM SLEEP SORT )
+                         FIND HEAD ID KILL MKDIR MKTEMP PKILL PS RM SLEEP
+                         SORT TOUCH )
 
     for var in ${envlist[*]} ; do
         if test ! -x "${!var}"; then
