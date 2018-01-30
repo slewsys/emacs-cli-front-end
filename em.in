@@ -239,6 +239,18 @@ create-frame-or-tty ()
     fi
 }
 
+set-for-console ()
+{
+        # No frames, by default.
+        preload_files='false'
+        create_new_frames='false'
+        create_many_new_frames='false'
+        frame_or_tty='-nw'
+
+        # Run in foreground.
+        background_op=''
+}
+
 # Set up environment for Emacs, as opposed to emacsclient.
 switch-to-emacs ()
 {
@@ -275,7 +287,7 @@ start-emacs-server ()
             fi
         done
 
-    "$_EMACS" --daemon="${server_name}" >"$emacs_server_log" 2>&1 &
+    "$_EMACS" $frame_or_tty --daemon="${server_name}" >"$emacs_server_log" 2>&1 &
     wait $! ||
         raise-exception 'server start'
 
@@ -353,6 +365,7 @@ absolute-path ()
     fi
 }
 
+
 # Parse command-line options for requests.
 option-requests ()
 {
@@ -375,30 +388,26 @@ option-requests ()
 
         # Client and server differ...
         if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
-
-            # No frames, by default.
-            preload_files='false'
-            create_new_frames='false'
-            create_many_new_frames='false'
-            frame_or_tty='-nw'
-
-            # Run in foreground.
-            background_op=''
+            set-for-console
         fi
     fi
 
     # SUDO session.
     if test ."$SUDO_USER" != .'' -a ."$SUDO_USER" != "$USER"; then
-
-        # No frames, by default.
-        preload_files='false'
-        create_new_frames='false'
-        create_many_new_frames='false'
-        frame_or_tty='-nw'
-
-        # Run in foreground.
-        background_op=''
+        set-for-console
     fi
+
+    # On non-Apple/Microsoft systems, if X11 display not set, assume
+    # running in console.
+    case "$uname" in
+        Darwin|Windows)
+        ;;
+        *)
+            if test ."$DISPLAY" = .''; then
+                set-for-console
+            fi
+            ;;
+    esac
 
     # Aggregate options
     while true; do
