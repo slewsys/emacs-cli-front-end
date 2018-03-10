@@ -83,6 +83,7 @@ preload_files='false'
 super_user=''
 super_user_prefix=''
 server_name=''
+tty_name=''
 background_op='&'
 frame_or_tty='--create-frame'
 argv=''
@@ -246,6 +247,10 @@ set-for-console ()
         create_new_frames='false'
         create_many_new_frames='false'
         frame_or_tty='-nw'
+
+        # Provide default Emacs server name.  Overriden by option `-s'.
+        tty_name=$(tty)
+        server_name="server$(ID -u)_${tty_name##*/}"
 
         # Run in foreground.
         background_op=''

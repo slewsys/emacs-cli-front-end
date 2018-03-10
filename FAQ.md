@@ -81,7 +81,7 @@ __Emacs__ in daemon mode. See the file _./contrib/set-tmpdir.sh_ for a
 solution.
 
 ## Q: `Waiting for Emacs...` and then nothing happens?
-A: If logged in via multiple virtual terminals, then the file may be
+A: If logged in via multiple virtual/pseudo terminals, then the file may be
 opened in the first terminal from which __em__ was invoked. To be able
 to edit in each virtual terminal separately, invoke __em__ with the
 `emacsclient(1)` option `-s` and an option argument uniquely
@@ -97,3 +97,6 @@ while in tty `/dev/ttyv2` __em__ might be invoked (and always
 thereafter) as:
 ```bash
 em -s v2 [...]
+
+NB: The __em__ script attempts to set a unique server name as appropriate
+for console-based I/O in the function `set-for-console`.

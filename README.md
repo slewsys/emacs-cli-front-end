@@ -3,23 +3,10 @@ The __em__ script runs `emacs(1)` and/or `emacsclient(1)` as appropriate per
 given command-line arguments. For interactive sessions, `emacs(1)` is
 started in daemon mode as necessary prior to running `emacsclient(1)`.
 
-When running Emacs in multiple virtual terminals (e.g., via ssh(1)),
-each virtual terminal requires a separate Emacs daemon for I/O.
-Perhaps the easiest way of doing this is by invoking __em__ with the
-`emacsclient(1)` option `-s` to specify a unique socket name for each
-virtual terminal.
-
-In tty `/dev/ttyv1`, for instance, __em__ might be invoked (and
-always thereafter) as:
-```bash
-em -s v1 [...]
-```
-
-while in tty `/dev/ttyv2` __em__ might be invoked (and always
-thereafter) as:
-```bash
-em -s v2 [...]
-```
+When running Emacs in multiple virtual/pseudo terminals (e.g., via
+ssh(1)), each terminal requires a separate Emacs daemon for I/O. The
+__em__ script attempts to address this via a heuristic
+by setting a unique server name for each terminal.
 
 Invoking __em__ with multiple _FILE_ arguments opens, by default,
 _FILEs_ in the top-most frame either sequentially, via the
