@@ -79,3 +79,21 @@ This can be caused by the environment variable `TMPDIR` not being
 defined. In particular, `TMPDIR` must be set prior to running
 __Emacs__ in daemon mode. See the file _./contrib/set-tmpdir.sh_ for a
 solution.
+
+## Q: `Waiting for Emacs...` and then nothing happens?
+A: If logged in via multiple virtual terminals, then the file may be
+opened in the first terminal from which __em__ was invoked. To be able
+to edit in each virtual terminal separately, invoke __em__ with the
+`emacsclient(1)` option `-s` and an option argument uniquely
+corresponding to each virtual terminal.
+
+In tty `/dev/ttyv1`, for instance, __em__ might be invoked (and
+always thereafter) as:
+```bash
+em -s v1 [...]
+```
+
+while in tty `/dev/ttyv2` __em__ might be invoked (and always
+thereafter) as:
+```bash
+em -s v2 [...]

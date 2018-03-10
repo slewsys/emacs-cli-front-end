@@ -740,7 +740,7 @@ option-requests ()
             # emacslcient `-s' and `--socket' options.
             # emacsclient `--parent-id' option.
             --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                               \
-                --pa*|-pa*|--so*|-so*|-s)
+                --so*|-so*|-s)
 
                 # OPTARG given as --opt=OPTARG.
                 if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
