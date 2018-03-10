@@ -705,6 +705,7 @@ option-requests ()
             --bac*|-bac*|-bg|                                                 \
                 --bo*|-bo*|-bd|-bw|                                           \
                 --ch*|-ch*|--co*|-co*|--cu*|-cu*|-cr|                         \
+                --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                           \
                 --di*|-di*|-L|                                                \
                 -F|--fun*|-fun*|-f|                                           \
                 --fo[nr]*|-fo[nr]*|-fn|-fg|                                   \
@@ -736,11 +737,8 @@ option-requests ()
                 _EMACSCLIENT="$_EMACS"
                 ;;
 
-            # Emacs `--daemon', `--fg-daemon' and `--bg-daemon' options.
-            # emacslcient `-s' and `--socket' options.
-            # emacsclient `--parent-id' option.
-            --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                               \
-                --so*|-so*|-s)
+            # emacslcient options `-s' and `--socket-name'.
+            --so*|-so*|-s)
 
                 # OPTARG given as --opt=OPTARG.
                 if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
