@@ -66,6 +66,7 @@ shell_script=${0##*/}
 : ${SLEEP:='@SLEEP_CMD@'}
 : ${SORT:='@SORT_CMD@'}
 : ${TOUCH:='@TOUCH_CMD@'}
+: ${TTY:='@TTY_CMD@'}
 
 emacs_confdir="$HOME/.emacs.d"
 emacs_server_log="${emacs_confdir}/emacs-server.log"
@@ -249,8 +250,8 @@ set-for-console ()
         frame_or_tty='-nw'
 
         # Provide default Emacs server name.  Overriden by option `-s'.
-        tty_name=$(tty)
-        server_name="server$(ID -u)_${tty_name##*/}"
+        tty_name=$($TTY)
+        server_name="server$($ID -u)_${tty_name##*/}"
 
         # Run in foreground.
         background_op=''
