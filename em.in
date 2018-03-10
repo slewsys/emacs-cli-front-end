@@ -67,6 +67,7 @@ shell_script=${0##*/}
 : ${SORT:='@SORT_CMD@'}
 : ${TOUCH:='@TOUCH_CMD@'}
 : ${TTY:='@TTY_CMD@'}
+: ${UNAME:='@UNAME_CMD@'}
 
 emacs_confdir="$HOME/.emacs.d"
 emacs_server_log="${emacs_confdir}/emacs-server.log"
@@ -379,47 +380,6 @@ option-requests ()
     declare directory=''
     declare editor=''
     declare file=''
-    declare -a endpoint=()
-
-    # If no arguments, then edit buffer `*scratch*' by default
-    if (( $# == 0 )); then
-        set -- --buffer='*scratch*'
-        OPTIND+=1
-    fi
-
-    # SSH session.
-    if test ."$SSH_TTY" != .''; then
-
-        endpoint=( $SSH_CONNECTION )
-
-        # Client and server differ...
-        if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
-            set-for-console
-            set -- --socket-name="$server_name" "$@"
-            OPTIND+=1
-        fi
-    fi
-
-    # SUDO session.
-    if test ."$SUDO_USER" != .'' -a ."$SUDO_USER" != "$USER"; then
-        set-for-console
-        set -- --socket-name="$server_name" "$@"
-        OPTIND+=1
-    fi
-
-    # On non-Apple/Microsoft systems, if X11 display not set, assume
-    # running in console.
-    case "$uname" in
-        Darwin|Windows)
-        ;;
-        *)
-            if test ."$DISPLAY" = .''; then
-                set-for-console
-                set -- --socket-name="$server_name" "$@"
-                OPTIND+=1
-            fi
-            ;;
-    esac
 
     # Aggregate options
     while true; do
@@ -976,7 +936,44 @@ EOF
     fi
 }
 
+# If no arguments, then edit buffer `*scratch*' by default
+if (( $# == 0 )); then
+    set -- --buffer='*scratch*'
+fi
+
+# SSH session.
+if test ."$SSH_TTY" != .''; then
+
+    declare -a endpoint=( $SSH_CONNECTION )
+
+    # Client and server differ...
+    if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
+        set-for-console
+        set -- --socket-name="$server_name" "$@"
+    fi
+fi
+
+# SUDO session.
+if test ."$SUDO_USER" != .'' -a ."$SUDO_USER" != "$USER"; then
+    set-for-console
+    set -- --socket-name="$server_name" "$@"
+fi
+
+# On non-Apple/Microsoft systems, if X11 display not set, assume
+# running in console.
+case "$UNAME" in
+    Darwin|Windows)
+    ;;
+    *)
+        if test ."$DISPLAY" = .''; then
+            set-for-console
+            set -- --socket-name="$server_name" "$@"
+        fi
+        ;;
+esac
+
 # Only help or version requested.
+OPTIND=1
 if ! option-requests "$@"; then
     exit 0
 fi
