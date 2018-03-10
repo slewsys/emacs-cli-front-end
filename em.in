@@ -395,12 +395,16 @@ option-requests ()
         # Client and server differ...
         if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
             set-for-console
+            set -- --socket-name="$server_name" "$@"
+            OPTIND+=1
         fi
     fi
 
     # SUDO session.
     if test ."$SUDO_USER" != .'' -a ."$SUDO_USER" != "$USER"; then
         set-for-console
+        set -- --socket-name="$server_name" "$@"
+        OPTIND+=1
     fi
 
     # On non-Apple/Microsoft systems, if X11 display not set, assume
@@ -411,6 +415,8 @@ option-requests ()
         *)
             if test ."$DISPLAY" = .''; then
                 set-for-console
+                set -- --socket-name="$server_name" "$@"
+                OPTIND+=1
             fi
             ;;
     esac
