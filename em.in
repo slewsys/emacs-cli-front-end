@@ -961,9 +961,9 @@ fi
 
 # On non-Apple/Microsoft systems, if X11 display not set, assume
 # running in console.
-case "$UNAME" in
+case "$($UNAME)" in
     Darwin|Windows)
-    ;;
+        ;;
     *)
         if test ."$DISPLAY" = .''; then
             set-for-console
