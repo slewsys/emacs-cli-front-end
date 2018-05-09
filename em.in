@@ -108,7 +108,7 @@ r !"$_EMACSCLIENT" --help
 # Option \`-f' is shadowed by Emacs option \`--funcall'
 /-f SERVER, /s;;;
 .,+j
-s;\\(SERVER\\).*\\(Set\\);\\1    \\2;
+s;\(SERVER\).*\(Set\);\1    \2;
 \$-1c
 
 Extended options:
