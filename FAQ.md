@@ -18,6 +18,9 @@ touch configure.ac aclocal.m4 configure Makefile.am Makefile.in
 make && sudo make install
 ```
 
+If, after trying the above commands, `autotools(1)` is still falling over,
+try reconstructing the build system with `./autogen.sh`.
+
 For details on why preserving timestamps with `git(1)` would be
 problematic, see
 [GitWiki](https://git.wiki.kernel.org/index.php/Git_FAQ#Why_isn.27t_Git_preserving_modification_time_on_files.3F).

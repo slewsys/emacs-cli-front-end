@@ -1004,7 +1004,7 @@ fi
 trap 'if test -f "$stderr_cache"; then
         $RM -f "$stderr_cache";
         exit $error_status;
-      fi' 0 1 2 15 20
+      fi' 0 1 2 15
 
 exec 3>&2
 
