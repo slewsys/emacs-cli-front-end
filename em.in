@@ -70,6 +70,7 @@ script_name=${0##*/}
 : ${TOUCH:='@TOUCH_CMD@'}
 : ${TTY:='@TTY_CMD@'}
 : ${UNAME:='@UNAME_CMD@'}
+: ${WMCTRL:='@WMCTRL_CMD@'}
 
 emacs_confdir="${HOME}/.emacs.d"
 emacs_server_log="${emacs_confdir}/emacs-server.log"
@@ -1092,7 +1093,9 @@ else
 fi
 
 if test ."$background_op" != .''; then
-    if test -x "$OSASCRIPT"; then
+    if test -x "$WMCTRL"; then
+        $WMCTRL -a "emacs@"
+    elif test -x "$OSASCRIPT"; then
         emacs_frontmost='tell application "System Events" '
         emacs_frontmost+='to set frontmost of process "Emacs" to true'
         $OSASCRIPT -e "$emacs_frontmost"

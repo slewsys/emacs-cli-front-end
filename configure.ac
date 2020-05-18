@@ -51,6 +51,7 @@ AC_PATH_PROG([SORT_CMD], [sort])
 AC_PATH_PROG([TOUCH_CMD], [touch])
 AC_PATH_PROG([TTY_CMD], [tty])
 AC_PATH_PROG([UNAME_CMD], [uname])
+AC_PATH_PROG([WMCTRL_CMD], [wmctrl])
 
 AC_CONFIG_FILES([Makefile
  em
