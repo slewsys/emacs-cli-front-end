@@ -72,33 +72,33 @@ script_name=${0##*/}
 : ${UNAME:='@UNAME_CMD@'}
 : ${WMCTRL:='@WMCTRL_CMD@'}
 
-emacs_confdir="${HOME}/.emacs.d"
-emacs_server_log="${emacs_confdir}/emacs-server.log"
+declare emacs_confdir="${HOME}/.emacs.d"
+declare emacs_server_log="${emacs_confdir}/emacs-server.log"
 
 # Delay in seconds while buffer loads (system dependent).
-until_buffer_loads='0.5'
+declare until_buffer_loads='0.5'
 
 # Initialize options
-allow_server_start='true'
-create_many_new_frames='false'
-create_new_frames='false'
-enable_trace='false'
-preload_files='false'
-super_user=''
-super_user_prefix=''
-server_name=''
-tty_name=''
-background_op='&'
-frame_or_tty='--create-frame'
-argv=''
-argc=0
+declare allow_server_start='true'
+declare create_many_new_frames='false'
+declare create_new_frames='false'
+declare enable_trace='false'
+declare preload_files='false'
+declare super_user=''
+declare super_user_prefix=''
+declare server_name=''
+declare tty_name=''
+declare background_op='&'
+declare frame_or_tty='--create-frame'
+declare argv=''
+declare argc=0
 
 # If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
-emacs_verify_kill='false'
-emacs_kill_timeout='10'
+declare emacs_verify_kill='false'
+declare emacs_kill_timeout='10'
 
 # Default error message.
-error_diagnostic="Failed to connect to server.\n\
+declare error_diagnostic="Failed to connect to server.\n\
 To start the server in Emacs, type \\\"M-x server-start\\\"."
 
 
@@ -163,10 +163,10 @@ EOF
 # Check shell interpreter version.
 interpreter-supported ()
 {
-    # $BASH_VERSION prerequisites (want: declare option `-n')
-    declare -i BASH_MAJOR_PREREQ=4
-    declare -i BASH_MINOR_PREREQ=3
-    declare -i BASH_REVISION_PREREQ=0
+    # $BASH_VERSION prerequisites (want: option `-n')
+    local -i BASH_MAJOR_PREREQ=4
+    local -i BASH_MINOR_PREREQ=3
+    local -i BASH_REVISION_PREREQ=0
 
     if test ."$BASH_VERSION" = .''; then
         echo "$script_name: Bash shell required." >&2
@@ -186,11 +186,8 @@ interpreter-supported ()
 # Check command paths.
 environment-is-valid ()
 {
-
-
-
-    declare -i status=0
-    declare -a envlist=( AWK BASENAME DIRNAME ED EGREP _EMACS _EMACSCLIENT
+    local -i status=0
+    local -a envlist=( AWK BASENAME DIRNAME ED EGREP _EMACS _EMACSCLIENT
                          FIND HEAD ID KILL MKDIR MKTEMP PKILL PS RM SLEEP
                          SORT TOUCH )
 
@@ -206,9 +203,9 @@ environment-is-valid ()
 # Check Emacs version.
 emacs-is-current ()
 {
-    declare -i EMACS_MAJOR_PREREQ=25
-    declare -i status=0
-    declare emacs_version
+    local -i EMACS_MAJOR_PREREQ=25
+    local -i status=0
+    local emacs_version
 
     for var in _EMACS _EMACSCLIENT; do
         emacs_version=$(
@@ -283,9 +280,9 @@ raise-exception ()
 
 start-emacs-server ()
 {
-    declare -i i=0
-    declare first_diag='true'
-    declare server_socket_dir
+    local -i i=0
+    local first_diag='true'
+    local server_socket_dir
 
     server_socket_dir=$(
         $_EMACS --batch -q  \
@@ -331,12 +328,12 @@ start-emacs-server ()
 # otherwise current directory. Neither file nor directory need exist.
 real-path ()
 {
-    declare file
+    local file
     printf -v file '%q' "$1"
 
-    declare dir=$1
-    declare realdir
-    declare base
+    local dir=$1
+    local realdir
+    local base
 
     if test ! -d "$dir"; then
         dir=$($DIRNAME $file)
@@ -373,8 +370,8 @@ real-path ()
 # path of (non-null) dir if given, otherwise current directory.
 absolute-path ()
 {
-    declare file=$1
-    declare dir=$2
+    local file=$1
+    local dir=$2
 
     if test ."$file" = .'' -a ."$dir" = .''; then
         real-path .
@@ -389,10 +386,10 @@ absolute-path ()
 # Parse command-line options for requests.
 option-requests ()
 {
-    declare buffer=''
-    declare directory=''
-    declare editor=''
-    declare file=''
+    local buffer=''
+    local directory=''
+    local editor=''
+    local file=''
 
     # Aggregate options
     while true; do
