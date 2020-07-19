@@ -16,20 +16,22 @@
 # In addition to command-line options from emacs(1) and emacsclient(1),
 # the following options are recognized:
 #
-#   --buffer[=BUF]          Visit buffer BUF if given, otherwise `*scratch*'.
-#   --dired[=DIR]           Visit directory DIR if given, otherwise `.'.
-#   --markdown, -md=FILE  Visit FILE in mode \`markdown-live-preview-mode'.
-#   --new-frame             Visit FILEs in a new frame.
-#   --preload-files         Load FILEs in parallel, but visit one at a time.
-#   --many-frames           Visit FILEs in parallel, each in its own frame.
-#   --save-kill             Save buffers and kill Emacs and Emacs server.
-#   --super-user            Visit FILEs with `root' privileges via tramp.
-#   --trace                 Trace execution of $pgm(1) script.
+#   --buffer[=BUF]           Visit buffer BUF if given, otherwise `*scratch*'.
+#   --dired[=DIR]            Visit directory DIR if given, otherwise `.'.
+#   --markdown, -md=FILE     Visit FILE in mode \`markdown-live-preview-mode'.
+#   --new-frame              Visit FILEs in a new frame.
+#   --preload-files          Load FILEs in parallel, but visit one at a time.
+#   --many-frames            Visit FILEs in parallel, each in its own frame.
+#   --save-kill              Save buffers and kill Emacs and Emacs server.
+#   --ssh=[USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
+#                            given, visit USER's home directory on HOST.
+#   --super-user             Visit FILEs with `root' privileges via tramp.
+#   --trace                  Trace execution of $pgm(1) script.
 #   --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
-#                           Call \`emerge-files' with arguments FILE1 and
-#                           FILE2.  Save output to OUTPUT-FILE if given.
-#   --update-loaddefs[=DIR] Build DIR-loaddefs.el.
-#   --wait                  Run emacsclient in foreground.
+#                            Call \`emerge-files' with arguments FILE1 and
+#                            FILE2.  Save output to OUTPUT-FILE if given.
+#   --update-loaddefs[=DIR]  Build DIR-loaddefs.el.
+#   --wait                   Run emacsclient in foreground.
 #
 # Options may be abbreviated (e.g., `-new' instead of `--new-frame')
 # provided they are unambiguous.
@@ -115,20 +117,22 @@ s;\(SERVER\).*\(Set\);\1    \2;
 
 Extended options:
 
---buffer[=BUF]          Visit buffer BUF if given, otherwise \`*scratch*'.
---dired[=DIR]           Visit directory DIR if given, otherwise \`.'.
---many-frames           Visit FILEs in parallel, each in its own frame.
---markdown, -md=FILE    Visit FILE in mode \`markdown-live-preview-mode'.
---new-frame             Visit FILEs in a new frame.
---preload-files         Load FILEs in parallel, but visit one at a time.
---save-kill             Save buffers and kill Emacs and Emacs server.
---super-user            Visit FILEs with \`root' privileges via tramp.
---trace                 Trace execution of $script_name(1) script.
+--buffer[=BUF]           Visit buffer BUF if given, otherwise \`*scratch*'.
+--dired[=DIR]            Visit directory DIR if given, otherwise \`.'.
+--many-frames            Visit FILEs in parallel, each in its own frame.
+--markdown, -md=FILE     Visit FILE in mode \`markdown-live-preview-mode'.
+--new-frame              Visit FILEs in a new frame.
+--preload-files          Load FILEs in parallel, but visit one at a time.
+--save-kill              Save buffers and kill Emacs and Emacs server.
+--ssh=[USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
+                         given, visit USER's home directory on HOST.
+--super-user             Visit FILEs with \`root' privileges via tramp.
+--trace                  Trace execution of $script_name(1) script.
 --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
-                        Call \`emerge-files' with arguments FILE1 and FILE2.
-                        Save output to OUTPUT-FILE if given.
---update-loaddefs[=DIR] Build DIR-loaddefs.el from DIR/*.el.
---wait                  Run emacsclient in foreground.
+                         Call \`emerge-files' with arguments FILE1 and FILE2.
+                         Save output to OUTPUT-FILE if given.
+--update-loaddefs[=DIR]  Build DIR-loaddefs.el from DIR/*.el.
+--wait                   Run emacsclient in foreground.
 
 In addition to the above, the following Emacs-specific options are
 recognized. Most of these cannot be processed by an existing Emacs
@@ -390,6 +394,9 @@ option-requests ()
     local directory=''
     local editor=''
     local file=''
+    local username=''
+    local remotehost=''
+    local pathname=''
 
     # Aggregate options
     while true; do
@@ -536,6 +543,48 @@ option-requests ()
                 OPTIND+=1
                 shift
                 ;;
+
+
+            # Extension option `--ssh [USER@]HOST[:PATHNAME]': open
+            # remote PATHNAME via SSH. If USER is nil, use
+            # $USER. If PATHNAME is nil, open USER's home
+            # directory on HOST.
+            --ss*|-ss)
+                argv[argc++]='--eval'
+                argv[argc]='(find-file "/ssh:'
+
+                if [[ ."$1" =~ \.[^=]+=([^@[:blank:]]*@)?([^@:[:blank:]]+:?)(.+)?$ ]]; then
+                    username=${BASH_REMATCH[1]%@}
+                    if test ."$username" != .''; then
+                        argv[argc]+=$(printf '%q@' "$username")
+                    fi
+                    remotehost=${BASH_REMATCH[2]%:}
+                    argv[argc]+=$(printf '%q:' "$remotehost")
+                    pathname=${BASH_REMATCH[3]:-'.'}
+                    if test ."$pathname" != .''; then
+                        argv[argc]+=$(printf '%q' "$pathname")
+                    fi
+                    OPTIND+=1
+                    shift
+                elif [[ ."$2" =~ \.([^@[:blank:]]*@)?([^@:[:blank:]]+:?)(.+)?$ ]]; then
+                    username=${BASH_REMATCH[1]%@}
+                    if test ."$username" != .''; then
+                        argv[argc]+=$(printf '%q@' "$username")
+                    fi
+                    remotehost=${BASH_REMATCH[2]%:}
+                    argv[argc]+=$(printf '%q:' "$remotehost")
+                    pathname=${BASH_REMATCH[3]:-'.'}
+                    if test ."$pathname" != .''; then
+                        argv[argc]+=$(printf '%q' "$pathname")
+                    fi
+                    OPTIND+=2
+                    shift 2
+                else
+                    raise-exception "option-requests: Invalid SSH argument"
+                fi
+                argv[argc++]+='")'
+                ;;
+
 
             # Extension option `--super-user'; with super-user
             # privileges via tramp.
@@ -981,6 +1030,13 @@ case "$($UNAME)" in
         ;;
 esac
 
+exec 3>&2
+
+stderr_cache=$($MKTEMP "${TMPDIR:-/tmp}/emacsclient.XXXXX") || {
+    error_diagnostic="Failed to create temp file"
+    raise-exception 'mktemp'
+}
+
 # Only help or version requested.
 OPTIND=1
 if ! option-requests "$@"; then
@@ -1004,13 +1060,6 @@ trap 'if test -f "$stderr_cache"; then
         exit $error_status;
       fi' 0 1 2 15
 
-exec 3>&2
-
-stderr_cache=$($MKTEMP "${TMPDIR:-/tmp}/emacsclient.XXXXX") || {
-    error_diagnostic="Failed to create temp file"
-    raise-exception 'mktemp'
-}
-
 # $enable_trace || exec 1>/dev/null 2>"$stderr_cache"
 $enable_trace || exec 2>"$stderr_cache"
 
@@ -1032,6 +1081,7 @@ if ! $preload_files; then
                 argx[i++]="${super_user_prefix}$f"
             fi
         done
+        echo "$_EMACSCLIENT $(create-frame-or-tty) ${argv[@]} ${argx[@]}"
         eval '{
             "$_EMACSCLIENT" $(create-frame-or-tty)                            \
                             "${argv[@]}"                                      \
