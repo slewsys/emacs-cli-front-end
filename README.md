@@ -25,6 +25,8 @@ the following options are recognized:
   --preload-files             | Load _FILEs_ in parallel, but visit one at a time.
   --many-frames               | Visit _FILEs_ in parallel, each in its own frame.
   --save-kill                 | Save buffers and kill Emacs and Emacs server.
+  --ssh=[USER@]HOST[:PATH]    | Visit _PATH_ on remote _HOST_ via SSH.
+  --ssu=[USER@]HOST[:PATH]    | Visit _PATH_ with SUDO on remote _HOST_ via SSH.
   --super-user                | Visit _FILEs_ with _root_ privileges via tramp.
   --trace                     | Trace execution of __em__ script.
   --two-way-merge=F1,F2[,OUT] | Call __emerge-files__ with file args F1 and F2.

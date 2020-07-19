@@ -162,6 +162,14 @@ Load FILEs in parallel, but visit one at a time.
 Save buffers and kill
 .I emacs\fR.
 .TP
+.B \-\-ssh=\fR[\fPUSER@\fR]\fPHOST\fR[\fP:PATH\fR]
+Visit PATH on remote HOST via SSH.
+If PATH not given, visit USER's home directory on HOST.
+.TP
+.B \-\-ssu=\fR[\fPUSER@\fR]\fPHOST\fR[\fP:PATH\fR]
+Visit PATH with SUDO on remote HOST via SSH.
+If PATH not given, visit USER's home directory on HOST.
+.TP
 .B \-\-super-user
 Visit FILEs with
 .I root
