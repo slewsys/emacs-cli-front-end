@@ -159,7 +159,7 @@ i
 
 .
 ,p
-q
+Q
 EOF
 
 }
@@ -549,7 +549,7 @@ option-requests ()
             # remote PATHNAME via SSH. If USER is nil, use
             # $USER. If PATHNAME is nil, open USER's home
             # directory on HOST.
-            --ss*|-ss)
+            --ss*|-ss*)
                 argv[argc++]='--eval'
                 argv[argc]='(find-file "/ssh:'
 
