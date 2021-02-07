@@ -593,6 +593,7 @@ TOUCH_CMD
 SORT_CMD
 SLEEP_CMD
 RM_CMD
+READLINK_CMD
 PS_CMD
 PKILL_CMD
 OSASCRIPT_CMD
@@ -3060,6 +3061,46 @@ PS_CMD=$ac_cv_path_PS_CMD
 if test -n "$PS_CMD"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PS_CMD" >&5
 $as_echo "$PS_CMD" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+# Extract the first word of "readlink", so it can be a program name with args.
+set dummy readlink; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_READLINK_CMD+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $READLINK_CMD in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_READLINK_CMD="$READLINK_CMD" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_READLINK_CMD="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+READLINK_CMD=$ac_cv_path_READLINK_CMD
+if test -n "$READLINK_CMD"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $READLINK_CMD" >&5
+$as_echo "$READLINK_CMD" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
