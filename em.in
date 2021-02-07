@@ -2,7 +2,7 @@
 #
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2017 Andrew L. Moore
+# Copyright © 2021 Andrew L. Moore
 #
 # This script runs emacs(1) and/or emacsclient(1) as appropriate per
 # given command-line arguments. For interactive sessions, emacs(1) is
@@ -69,6 +69,7 @@ script_name=${0##*/}
 : ${OSASCRIPT:='@OSASCRIPT_CMD@'}
 : ${PKILL:='@PKILL_CMD@'}
 : ${PS:='@PS_CMD@'}
+: ${READLINK:='@READLINK_CMD@'}
 : ${RM:='@RM_CMD@'}
 : ${SLEEP:='@SLEEP_CMD@'}
 : ${SORT:='@SORT_CMD@'}
@@ -232,7 +233,7 @@ emacs-is-current ()
 
 emacs-is-running ()
 {
-    $PKILL -0 -u "$($ID -u)" -f "${_EMACS##*/}.*${server_name}" >/dev/null 2>&1
+    $PKILL -0 -u "$($ID -u)" -f "${_EMACS##*/}.*daemon=${server_name}" >/dev/null 2>&1
 }
 
 emacsclient-is-running ()
@@ -398,6 +399,10 @@ option-requests ()
     local directory=''
     local editor=''
     local file=''
+    local files=''
+    local file1=''
+    local file2=''
+    local file3=''
     local username=''
     local remotehost=''
     local pathname=''
@@ -489,13 +494,23 @@ option-requests ()
 
                 # FILE given as --markdown=FILE
                 if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
-                    file=${BASH_REMATCH[1]}
+
+                    # Need eval in case of argument like `~/file'.
+                    file=$(eval $READLINK -e "${BASH_REMATCH[1]}")
+                    if test ."$file" = .''; then
+                        echo "${BASH_REMATCH[1]}: No such file or directory"
+                        exit 1
+                    fi
                     OPTIND+=1
                     shift
 
                 # FILE given as second, possibly null, argument.
                 else
-                    file=$2
+                    file=$($READLINK -e "$2")
+                    if test ."$file" = .''; then
+                        echo "$2: No such file or directory"
+                        exit 1
+                    fi
                     OPTIND+=$(( $# == 1 ? 1 : 2 ))
                     shift $(( $# == 1 ? 1 : 2 ))
                 fi
@@ -673,29 +688,45 @@ option-requests ()
                 argv[argc++]='--eval'
 
                 # FILEs given as --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
-                if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
+                if [[ ."$1" =~ \.[^=]*=([^[:space:]]{1,}) ]]; then
                     files=${BASH_REMATCH[1]}
-                    file1=${files%%,*}
+
+                    # Need eval in case of argument like `~/file'.
+                    file1=$(eval $READLINK -e "${files%%,*}")
+                    if test ."$file1" = .''; then
+                        echo "${files%%,*}: No such file or directory"
+                        exit 1
+                    fi
+
                     files=${files#*,}
-                    file2=${files%%,*}
-                    if test ."$file2" != ."$files"; then
-                        file3=${files#*,}
+
+                    # Need eval in case of argument like `~/file'.
+                    file2=$(eval $READLINK -e "${files%%,*}")
+                    if test ."$file2" = .''; then
+                        echo "${files%%,*}: No such file or directory"
+                        exit 1
+                    elif test ."$file2" != ."$files"; then
+
+                        # Need eval in case of argument like `~/file'.
+                        file3=$(eval $READLINK -f "${files#*,}")
                     fi
                     OPTIND+=1
                     shift
 
                 # FILEs given as second and third, possibly null, arguments.
                 else
-                    file1=$2
-                    file2=$3
+                    file1=$($READLINK -e "$2")
+                    if test ."$file1" = .''; then
+                        echo "$2: No such file or directory"
+                        exit 1
+                    fi
+                    file2=$($READLINK -e "$3")
+                    if test ."$file2" = .''; then
+                        echo "$3: No such file or directory"
+                        exit 1
+                    fi
                     OPTIND+=$(( $# > 2 ? 3 : ( $# > 1 ? 2 : 1 ) ))
                     shift $(( $# > 2 ? 3 : ( $# > 1 ? 2 : 1 ) ))
-                fi
-
-                if test ."$file1" = .'' -o ."$file2" = .'' -o \
-                        ! -f "$file1" -o ! -f "$file2"; then
-                    usage
-                    exit 1
                 fi
 
                 # Eval `emerge-files' on FILEs.
@@ -750,7 +781,7 @@ option-requests ()
                         directory=$(absolute-path "$directory")
                         ;;
                     *)
-                        directory=$(readlink -f "$directory")
+                        directory=$($READLINK -f "$directory")
                         ;;
                 esac
 
@@ -1213,7 +1244,7 @@ fi
 if $emacs_verify_kill; then
     echo "Stopping Server..." >&3
     $SLEEP $emacs_kill_timeout
-    $PKILL -9 -u $($ID -u) -f "${_EMACS}.*${server_name}"
+    $PKILL -9 -u "$($ID -u)" -f "${_EMACS##*/}.*daemon=${server_name}"
 fi
 
 #
