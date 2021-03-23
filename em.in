@@ -1230,7 +1230,11 @@ fi
 
 if test ."$background_op" != .''; then
     if test -x "$WMCTRL"; then
-        $WMCTRL -a "emacs@"
+        if $WMCTRL -l | $EGREP -q 'emacs@'; then
+            $WMCTRL -a 'emacs@'
+        else
+            eval $WMCTRL ${1:+"-a ${1##*/}"}
+        fi
     elif test -x "$OSASCRIPT"; then
         emacs_frontmost='tell application "System Events" '
         emacs_frontmost+='to set frontmost of process "Emacs" to true'
