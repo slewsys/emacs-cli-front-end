@@ -131,8 +131,9 @@ Extended options:
 --ssh=[USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
                          given, visit USER's home directory on HOST.
 --ssu=[USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
-                         If PATH not given, visit USER's home directory on HOST.
---super-user             Visit FILEs with \`root' privileges via tramp.
+                         If PATH not given, visit USER's home directory.
+--super-user[=USER]      If USER is specified, visit files as USER
+                         via tramp. Otherwise, visit files as `root'.
 --trace                  Trace execution of $script_name(1) script.
 --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
                          Call \`emerge-files' with arguments FILE1 and FILE2.
@@ -331,7 +332,6 @@ start-emacs-server ()
             fi
             echo "$diag" >&3
         done
-
 }
 
 # real-path: Return absolute path of file or directory, if given,
