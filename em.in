@@ -71,8 +71,10 @@ script_name=${0##*/}
 : ${PS:='@PS_CMD@'}
 : ${READLINK:='@READLINK_CMD@'}
 : ${RM:='@RM_CMD@'}
+: ${SCRIPT:='@SCRIPT_CMD@'}
 : ${SLEEP:='@SLEEP_CMD@'}
 : ${SORT:='@SORT_CMD@'}
+: ${STAT:='@STAT_CMD@'}
 : ${TOUCH:='@TOUCH_CMD@'}
 : ${TTY:='@TTY_CMD@'}
 : ${UNAME:='@UNAME_CMD@'}
@@ -107,11 +109,12 @@ declare emacs_kill_timeout=10
 declare error_diagnostic='Failed to connect to server.
 To start the server in Emacs, type "M-x server-start".'
 
-
 usage ()
 {
     $ED -s <<EOF
-r !"$_EMACSCLIENT" --help
+a
+$("$_EMACSCLIENT" --help)
+.
 1s;Usage: [^ ]\{1,\};Usage: $script_name;
 # Option \`-f' is shadowed by Emacs option \`--funcall'
 /-f SERVER, /s;;;
@@ -133,7 +136,7 @@ Extended options:
 --ssu=[USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
                          If PATH not given, visit USER's home directory.
 --super-user[=USER]      If USER is specified, visit files as USER
-                         via tramp. Otherwise, visit files as `root'.
+                         via tramp. Otherwise, visit files as \`root'.
 --trace                  Trace execution of $script_name(1) script.
 --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
                          Call \`emerge-files' with arguments FILE1 and FILE2.
@@ -249,6 +252,8 @@ create-frame-or-tty ()
         if ! emacsclient-is-running || $create_new_frames; then
             echo $frame_or_tty
         fi
+    elif test ."$frame_or_tty" != .'--create-frame'; then
+        echo $frame_or_tty
     fi
 }
 
@@ -1087,6 +1092,15 @@ if (( $# == 0 )); then
     set -- --buffer='*scratch*'
 fi
 
+case "$($UNAME)" in
+    Linux)
+        declare stat_flag=-c
+        ;;
+    *)
+        declare stat_flag=-f
+        ;;
+esac
+
 # SSH session.
 if test ."$SSH_TTY" != .''; then
     declare -a endpoint=( $SSH_CONNECTION )
@@ -1094,16 +1108,27 @@ if test ."$SSH_TTY" != .''; then
     # Client and server differ...
     if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
         set-for-console
-        set -- --socket-name="$server_name" "$@"
+        if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+            set -- --socket-name="$server_name" "$@"
+        fi
     fi
 fi
 
+# If TTY doesn't belong to us, then...
+if (( $($STAT "${stat_flag}" '%u' $($TTY)) != $($ID -u) )); then
+
+    # No point is in exec'ing `script', so just call emacs directly.
+    _EMACSCLIENT=$_EMACS
+    set-for-console
+
 # SUDO session.
-if test ."$server_name" = .'' -a \
+elif test ."$server_name" = .'' -a \
         ."$SUDO_USER" != .'' -a \
         ."$SUDO_USER" != "$USER"; then
     set-for-console
-    set -- --socket-name="$server_name" "$@"
+    if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+        set -- --socket-name="$server_name" "$@"
+    fi
 fi
 
 # On non-Apple/Microsoft systems, if X11 display not set, assume
@@ -1114,7 +1139,9 @@ case "$($UNAME)" in
     *)
         if test ."$server_name" = .'' -a ."$DISPLAY" = .''; then
             set-for-console
-            set -- --socket-name="$server_name" "$@"
+            if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+                set -- --socket-name="$server_name" "$@"
+            fi
         fi
         ;;
 esac
@@ -1153,7 +1180,7 @@ trap 'if test -f "$stderr_cache"; then
 $enable_trace || exec 2>"$stderr_cache"
 
 if test ."$_EMACSCLIENT" = ."$_EMACS"; then
-    switch-to-emacs "$1"
+    switch-to-emacs
 elif $allow_server_start && ! emacs-is-running; then
     start-emacs-server
 fi
@@ -1173,8 +1200,8 @@ if ! $preload_files; then
         echo "$_EMACSCLIENT $(create-frame-or-tty) ${argv[@]} ${argx[@]}"
         eval '{
             "$_EMACSCLIENT" $(create-frame-or-tty)                            \
-                            "${argv[@]}"                                      \
-                            "${argx[@]}" ||
+                            ${argv[@]}                                        \
+                            ${argx[@]} ||
             raise-exception sequence
         }' $background_op
         $SLEEP $until_buffer_loads
@@ -1194,8 +1221,8 @@ else
             fi
             eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
-                                "${argv[@]}"                                  \
-                                "${argx[@]}" ||
+                                ${argv[@]}                                    \
+                                ${argx[@]} ||
                 raise-exception many frames
             }' $background_op
             $SLEEP $until_buffer_loads
@@ -1209,8 +1236,8 @@ else
             fi
             eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
-                                "${argv[@]}"                                  \
-                                "${argx[@]}" ||
+                                ${argv[@]}                                    \
+                                ${argx[@]} ||
                 raise-exception preload
             }' $background_op
             $SLEEP $until_buffer_loads
@@ -1222,7 +1249,7 @@ else
     if (( $# == 0 )); then
         eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
-                                "${argv[@]}" ||
+                                ${argv[@]} ||
                 raise-exception no file args
             }' $background_op
     fi
