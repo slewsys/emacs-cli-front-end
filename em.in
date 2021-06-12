@@ -80,40 +80,11 @@ script_name=${0##*/}
 : ${UNAME:='@UNAME_CMD@'}
 : ${WMCTRL:='@WMCTRL_CMD@'}
 
-declare emacs_confdir=${HOME}/.emacs.d
-declare emacs_server_log=${emacs_confdir}/emacs-server.log
-
-# Delay in seconds while buffer loads (system dependent).
-declare until_buffer_loads=0.5
-
-# Initialize options
-declare allow_server_start=true
-declare create_many_new_frames=false
-declare create_new_frames=false
-declare enable_trace=false
-declare preload_files=false
-declare super_user=''
-declare super_user_prefix=''
-declare server_name=''
-declare tty_name=''
-declare background_op='&'
-declare frame_or_tty=--create-frame
-declare argv=''
-declare argc=0
-
-# If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
-declare emacs_verify_kill=false
-declare emacs_kill_timeout=10
-
-# Default error message.
-declare error_diagnostic='Failed to connect to server.
-To start the server in Emacs, type "M-x server-start".'
-
 usage ()
 {
-    $ED -s <<EOF
+    $ED -v <<EOF
 a
-$("$_EMACSCLIENT" --help)
+$($_EMACSCLIENT --help)
 .
 1s;Usage: [^ ]\{1,\};Usage: $script_name;
 # Option \`-f' is shadowed by Emacs option \`--funcall'
@@ -151,10 +122,12 @@ server, in which case a separate Emacs process is invoked.
 .
 # Mark last line of \`emacsclient --help'.
 \$kx
-r !"$_EMACS" --help
+\$a
+$($_EMACS --help)
+.
 # Remove head of \`emacs --help'.
-'x+;/options:\$/-d
-;s/.*options:\$/Emacs &/
+'x+;/options:/-d
+s/.*options:\$/Emacs &/
 # Remove shadowed options
 /-q, --quiet/s;;--quiet    ;
 ?--display?d
@@ -320,7 +293,7 @@ start-emacs-server ()
             done
     fi
 
-    $_EMACS --daemon="$server_name" >"$emacs_server_log" 2>&1 &
+    $_EMACS --daemon="$server_name" >"${emacs_confdir}/${server_name}.log" 2>&1 &
     wait $! ||
         raise-exception 'server start'
 
@@ -329,7 +302,7 @@ start-emacs-server ()
         raise-exception 'server access'
 
     # Print Emacs startup errors/warnings to console.
-    $EGREP -iA 7 'warning|error' "$emacs_server_log" |
+    $EGREP -iA 7 'warning|error' "${emacs_confdir}/${server_name}.log" |
         while read diag; do
             if $first_diag; then
                 echo >&3
@@ -1087,195 +1060,224 @@ EOF
     fi
 }
 
-# If no arguments, then edit buffer `*scratch*' by default
-if (( $# == 0 )); then
-    set -- --buffer='*scratch*'
-fi
+if test ."$0" = ."${BASH_SOURCE[0]}"; then
+    declare emacs_confdir=${HOME}/.emacs.d
 
-case "$($UNAME)" in
-    Linux)
-        declare stat_flag=-c
-        ;;
-    *)
-        declare stat_flag=-f
-        ;;
-esac
+    # Delay in seconds while buffer loads (system dependent).
+    declare until_buffer_loads=0.5
 
-# SSH session.
-if test ."$SSH_TTY" != .''; then
-    declare -a endpoint=( $SSH_CONNECTION )
+    # Initialize options
+    declare allow_server_start=true
+    declare create_many_new_frames=false
+    declare create_new_frames=false
+    declare enable_trace=false
+    declare preload_files=false
+    declare super_user=''
+    declare super_user_prefix=''
+    declare server_name=''
+    declare tty_name=''
+    declare background_op='&'
+    declare frame_or_tty=--create-frame
+    declare -a argv=()
+    declare -a argx=()
+    declare argc=0
 
-    # Client and server differ...
-    if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
-        set-for-console
-        if test ."$_EMACSCLIENT" != ."$_EMACS"; then
-            set -- --socket-name="$server_name" "$@"
-        fi
+    # If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
+    declare emacs_verify_kill=false
+    declare emacs_kill_timeout=10
+
+    # Default error message.
+    declare error_diagnostic='Failed to connect to server.
+To start the server in Emacs, type "M-x server-start".'
+
+
+    # If no arguments, then edit buffer `*scratch*' by default
+    if (( $# == 0 )); then
+        set -- --buffer='*scratch*'
     fi
-fi
 
-# If TTY doesn't belong to us, then...
-if (( $($STAT "${stat_flag}" '%u' $($TTY)) != $($ID -u) )); then
+    case "$($UNAME)" in
+        Linux)
+            declare stat_flag=-c
+            ;;
+        *)
+            declare stat_flag=-f
+            ;;
+    esac
 
-    # No point is in exec'ing `script', so just call emacs directly.
-    _EMACSCLIENT=$_EMACS
-    set-for-console
+    # SSH session.
+    if test ."$SSH_TTY" != .''; then
+        declare -a endpoint=( $SSH_CONNECTION )
 
-# SUDO session.
-elif test ."$server_name" = .'' -a \
-        ."$SUDO_USER" != .'' -a \
-        ."$SUDO_USER" != "$USER"; then
-    set-for-console
-    if test ."$_EMACSCLIENT" != ."$_EMACS"; then
-        set -- --socket-name="$server_name" "$@"
-    fi
-fi
-
-# On non-Apple/Microsoft systems, if X11 display not set, assume
-# running in console.
-case "$($UNAME)" in
-    Darwin|Windows)
-        ;;
-    *)
-        if test ."$server_name" = .'' -a ."$DISPLAY" = .''; then
+        # Client and server differ...
+        if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
             set-for-console
             if test ."$_EMACSCLIENT" != ."$_EMACS"; then
                 set -- --socket-name="$server_name" "$@"
             fi
         fi
+    fi
+
+    # If TTY doesn't belong to us, then...
+    if (( $($STAT "${stat_flag}" '%u' $($TTY)) != $($ID -u) )); then
+
+        # Could exec `script', but Emacs daemon wouldn't be accessible
+        # after exit, so just call Emacs directly.
+        _EMACSCLIENT=$_EMACS
+        set-for-console
+
+        # SUDO session.
+    elif test ."$server_name" = .'' -a \
+              ."$SUDO_USER" != .'' -a \
+              ."$SUDO_USER" != "$USER"; then
+        set-for-console
+        if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+            set -- --socket-name="$server_name" "$@"
+        fi
+    fi
+
+    # On non-Apple/Microsoft systems, if X11 display not set, assume
+    # running in console.
+    case "$($UNAME)" in
+        Darwin|Windows)
         ;;
-esac
-
-exec 3>&2
-
-stderr_cache=$($MKTEMP "${TMPDIR:-/tmp}/emacsclient.XXXXX") || {
-    error_diagnostic="Failed to create temp file"
-    raise-exception 'mktemp'
-}
-
-# Only help or version requested.
-OPTIND=1
-if ! option-requests "$@"; then
-    exit 0
-fi
-
-shift $(( OPTIND - 1 ))
-
-# Ignore emacsclient alternate editor.
-unset ALTERNATE_EDITOR
-# unset EMACS
-
-# Ensure that Emacs config directory exists for logging.
-if test ! -d "$emacs_confdir"; then
-    $MKDIR -p "$emacs_confdir"
-    $TOUCH "${emacs_confdir}/auto-insert.el"
-fi
-
-trap 'if test -f "$stderr_cache"; then
-        $RM -f "$stderr_cache";
-        exit $error_status;
-      fi' 0 1 2 15
-
-# $enable_trace || exec 1>/dev/null 2>"$stderr_cache"
-$enable_trace || exec 2>"$stderr_cache"
-
-if test ."$_EMACSCLIENT" = ."$_EMACS"; then
-    switch-to-emacs
-elif $allow_server_start && ! emacs-is-running; then
-    start-emacs-server
-fi
-
-# Sequentially open files...
-if ! $preload_files; then
-
-    if test -n "$(echo ${argv[@]})" -o -n "$(echo $@)"; then
-        i=0
-        for f in "$@"; do
-            if [[ ! ."$f" =~ ^\./ ]]; then
-                argx[i++]="${super_user_prefix}$PWD/$f"
-            else
-                argx[i++]="${super_user_prefix}$f"
+        *)
+            if test ."$server_name" = .'' -a ."$DISPLAY" = .''; then
+                set-for-console
+                if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+                    set -- --socket-name="$server_name" "$@"
+                fi
             fi
-        done
-        echo "$_EMACSCLIENT $(create-frame-or-tty) ${argv[@]} ${argx[@]}"
-        eval '{
+            ;;
+    esac
+
+    exec 3>&2
+
+    stderr_cache=$($MKTEMP "${TMPDIR:-/tmp}/emacsclient.XXXXX") || {
+        error_diagnostic="Failed to create temp file"
+        raise-exception 'mktemp'
+    }
+
+    # Only help or version requested.
+    OPTIND=1
+    if ! option-requests "$@"; then
+        exit 0
+    fi
+
+    shift $(( OPTIND - 1 ))
+
+    # Ignore emacsclient alternate editor.
+    unset ALTERNATE_EDITOR
+    # unset EMACS
+
+    # Ensure that Emacs config directory exists for logging.
+    if test ! -d "$emacs_confdir"; then
+        $MKDIR -p "$emacs_confdir"
+        $TOUCH "${emacs_confdir}/auto-insert.el"
+    fi
+
+    trap 'test -f "$stderr_cache" && $RM -f "$stderr_cache"; exit $error_status' 0 1 2 15
+
+    # $enable_trace || exec 1>/dev/null 2>"$stderr_cache"
+    $enable_trace || exec 2>"$stderr_cache"
+
+    if test ."$_EMACSCLIENT" = ."$_EMACS"; then
+        switch-to-emacs
+    elif $allow_server_start && ! emacs-is-running; then
+        start-emacs-server
+    fi
+
+    # Sequentially open files...
+    if ! $preload_files; then
+
+        if test -n "$(echo ${argv[@]})" -o -n "$(echo $@)"; then
+            i=0
+            for f in "$@"; do
+                if [[ ! ."$f" =~ ^\./ ]]; then
+                    argx[i++]="${super_user_prefix}$PWD/$f"
+                else
+                    argx[i++]="${super_user_prefix}$f"
+                fi
+            done
+            eval '{
             "$_EMACSCLIENT" $(create-frame-or-tty)                            \
-                            ${argv[@]}                                        \
-                            ${argx[@]} ||
+                            ${argv[0]:+"${argv[@]}"}                          \
+                            ${argx[0]:+"${argx[@]}"} ||
             raise-exception sequence
         }' $background_op
-        $SLEEP $until_buffer_loads
-    fi
+            $SLEEP $until_buffer_loads
+        fi
 
-# Simultaneously open files...
-else
+        # Simultaneously open files...
+    else
 
-    # each in new frame
-    if $create_many_new_frames; then
-        i=0
-        for f in "$@"; do
-            if [[ ! ."$f" =~ ^\./ ]]; then
-                argx="${super_user_prefix}$PWD/$f"
-            else
-                argx="${super_user_prefix}$f"
-            fi
-            eval '{
+        # each in new frame
+        if $create_many_new_frames; then
+            i=0
+            for f in "$@"; do
+                if [[ ! ."$f" =~ ^\./ ]]; then
+                    argx="${super_user_prefix}$PWD/$f"
+                else
+                    argx="${super_user_prefix}$f"
+                fi
+                eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
-                                ${argv[@]}                                    \
-                                ${argx[@]} ||
+                            ${argv[0]:+"${argv[@]}"}                          \
+                            ${argx[0]:+"${argx[@]}"} ||
                 raise-exception many frames
             }' $background_op
-            $SLEEP $until_buffer_loads
-        done
-    else
-        for f in "$@"; do
-            if [[ ! ."$f" =~ ^\./ ]]; then
-                argx="${super_user_prefix}$PWD/$f"
-            else
-                argx="${super_user_prefix}$f"
-            fi
-            eval '{
+                $SLEEP $until_buffer_loads
+            done
+        else
+            for f in "$@"; do
+                if [[ ! ."$f" =~ ^\./ ]]; then
+                    argx="${super_user_prefix}$PWD/$f"
+                else
+                    argx="${super_user_prefix}$f"
+                fi
+                eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
-                                ${argv[@]}                                    \
-                                ${argx[@]} ||
+                            ${argv[0]:+"${argv[@]}"}                          \
+                            ${argx[0]:+"${argx[@]}"} ||
                 raise-exception preload
             }' $background_op
-            $SLEEP $until_buffer_loads
-            create_new_frames='false'
-        done
-    fi
+                $SLEEP $until_buffer_loads
+                create_new_frames='false'
+            done
+        fi
 
-    # No file args...
-    if (( $# == 0 )); then
-        eval '{
+        # No file args...
+        if (( $# == 0 )); then
+            eval '{
                 "$_EMACSCLIENT" $(create-frame-or-tty)                        \
-                                ${argv[@]} ||
+                            ${argv[0]:+"${argv[@]}"} ||
                 raise-exception no file args
             }' $background_op
-    fi
-fi
-
-if test ."$background_op" != .''; then
-    if test -x "$WMCTRL"; then
-        if $WMCTRL -l | $EGREP -q 'emacs@'; then
-            $WMCTRL -a 'emacs@'
-        else
-            eval $WMCTRL ${1:+"-a ${1##*/}"}
         fi
-    elif test -x "$OSASCRIPT"; then
-        emacs_frontmost='tell application "System Events" '
-        emacs_frontmost+='to set frontmost of process "Emacs" to true'
-        $OSASCRIPT -e "$emacs_frontmost"
     fi
 
-    # Append newline after "Waiting for Emacs..."
-    $allow_server_start && echo >&3
-fi
+    if test ."$background_op" != .''; then
+        if test -x "$WMCTRL"; then
+            if $WMCTRL -l | $EGREP -q 'emacs@'; then
+                $WMCTRL -a 'emacs@'
+            else
+                eval $WMCTRL ${1:+"-a ${1##*/}"}
+            fi
+        elif test -x "$OSASCRIPT"; then
+            emacs_frontmost='tell application "System Events" '
+            emacs_frontmost+='to set frontmost of process "Emacs" to true'
+            $OSASCRIPT -e "$emacs_frontmost"
+        fi
 
-if $emacs_verify_kill; then
-    echo "Stopping Server..." >&3
-    $SLEEP $emacs_kill_timeout
-    $PKILL -9 -u "$($ID -u)" -f "${_EMACS##*/}.*daemon=${server_name}"
+        # Append newline after "Waiting for Emacs..."
+        $allow_server_start && echo >&3
+    fi
+
+    if $emacs_verify_kill; then
+        echo "Stopping Server..." >&3
+        $SLEEP $emacs_kill_timeout
+        $PKILL -9 -u "$($ID -u)" -f "${_EMACS##*/}.*daemon=${server_name}"
+    fi
 fi
 
 #
