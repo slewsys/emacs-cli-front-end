@@ -1,105 +1,69 @@
 # Questions and Answers
 
-## Q: Why does `./configure` fail?
-A: After cloning a repository, running `./configure` might fail with
-an error such as:
+## Q: Why doesn't `gpg` (**GnuPG**) prompt for a password in the terminal?
+
+A: An **Emacs** command requiring a **GnuPG** passphrase, such as
+   signing a commit in **Magit** mode, can fail in a graphical
+   environment if **Emacs** becomes detached from the terminal and is
+   virtually impossible when running **Emacs** in terminal mode due to
+   I/O contention. A better solution is to have **Emacs** prompt for
+   the passphrase in a minibuffer.
+
+   To enable this, add to the file *~/.gnupg/gpg.conf* a line:
 
 ```
-WARNING: 'automake-1.xx' is missing on your system
+pinentry-mode loopback
 ```
 
-because `git(1)` does not preserve timestamps, which causes
-`autoconf(1)` to try to rebuild _aclocal.m4_ and friends. To prevent
-this, run `touch(1)` first:
-
-```bash
-touch configure.ac aclocal.m4 configure Makefile.am Makefile.in
-./configure
-make && sudo make install
-```
-
-If, after trying the above commands, `autotools(1)` is still falling over,
-try reconstructing the build system with `./autogen.sh`.
-
-For details on why preserving timestamps with `git(1)` would be
-problematic, see
-[GitWiki](https://git.wiki.kernel.org/index.php/Git_FAQ#Why_isn.27t_Git_preserving_modification_time_on_files.3F).
-
-## Q: Why doesn't `gpg(1)` (GNUPG) prompt for a password in the terminal?
-A: Invoking an __Emacs__ command requiring a password, such as when
-working in Magit mode, can fail if __Emacs__ becomes detached from the
-terminal, especially in a graphical environment. A better solution is
-provided via the Emacs ELPA package `pinentry` which can prompt for a
-passphrase in the minibuffer.
-
-To enable this, install __Pinentry 0.9.5__ or later, and configure
-loopback mode in `gpg-agent(1)` by adding two lines to
-_~/.gnupg/gpg-agent.conf_:
+   and to *~/.gnupg/gpg-agent.conf* a line:
 
 ```
-allow-emacs-pinentry
 allow-loopback-pinentry
- ```
+```
 
-   Reload `gpg-agent(1)`:
+   Now, reload `gpg-agent`:
 
 ```
 gpgconf --reload gpg-agent
 ```
 
-   Next, install `pinentry.el`, e.g., as an ELPA package via the
-   __Emacs__ command:
+   Finally, restart **Emacs**. That's it!
 
-```
-M-x package-install RET
-pinentry RET
-```
+## Q: Why can't `emacsclient` be invoked after switching user ID?
 
-If `pinentry.el` is not yet available as an ELPA package, then just
-copy the file _./contrib/pinentry.el_ into __Emacs__ load-path. Once
-`pinentry.el` is installed, add these lines to _~/.emacs_:
-
-```
-(require 'pinentry)
-
-(setq epa-pinentry-mode 'loopback)
-(pinentry-start)
-```
-
-then restart __Emacs__. Finally, a big thank-you to __Oliver Scholz__
-for providing this answer on
-[StackExchange](https://emacs.stackexchange.com/questions/32881/enabling-minibuffer-pinentry-with-emacs-25-and-gnupg-2-1-on-ubuntu-xenial).
-
-## Q: Why can't `emacsclient(1)` be invoked after switching user ID?
-A: On macOS, after switching to another user ID via `sudo(1)`,
-`emacsclient(1)` might fail with an error such as:
+A: On macOS, after switching to another user ID via `sudo`,
+   `emacsclient` might fail with an error such as:
 
 ```
 Connection refused
 ```
 
-This can be caused by the environment variable `TMPDIR` not being
-defined. In particular, `TMPDIR` must be set prior to running
-__Emacs__ in daemon mode. See the file _./contrib/set-tmpdir.sh_ for a
-solution.
+   This can be caused by the environment variable `TMPDIR` not being
+   defined. In particular, `TMPDIR` must be set prior to running
+   **Emacs** in daemon mode. See the file _./contrib/set-tmpdir.sh_ for a
+   solution.
 
 ## Q: `Waiting for Emacs...` and then nothing happens?
-A: If logged in via multiple virtual/pseudo terminals, then the file may be
-opened in the first terminal from which __em__ was invoked. To be able
-to edit in each virtual terminal separately, invoke __em__ with the
-`emacsclient(1)` option `-s` and an option argument uniquely
-corresponding to each virtual terminal.
 
-In tty `/dev/ttyv1`, for instance, __em__ might be invoked (and
-always thereafter) as:
+A: If logged in via multiple virtual/pseudo terminals, then the file
+   may be opened in the first terminal from which **em** was invoked.
+   To be able to edit in each virtual terminal separately, invoke
+   **em** with the `emacsclient` option `-s` and an option argument
+   uniquely corresponding to each virtual terminal.
+
+   In tty `/dev/ttyv1`, for instance, **em** might be invoked (and
+   always thereafter) as:
+
 ```bash
 em -s v1 [...]
 ```
 
-while in tty `/dev/ttyv2` __em__ might be invoked (and always
-thereafter) as:
+   while in tty `/dev/ttyv2` **em** might be invoked (and always
+   thereafter) as:
+
 ```bash
 em -s v2 [...]
+```
 
-NB: The __em__ script attempts to set a unique server name as appropriate
-for console-based I/O in the function `set-for-console`.
+   NB: The **em** script attempts to set a unique server name as appropriate
+   for console-based I/O in the function `set-for-console`.

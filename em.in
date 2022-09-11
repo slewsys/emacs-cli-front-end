@@ -53,38 +53,38 @@ shopt -s extglob
 
 script_name=${0##*/}
 
-: ${AWK:='@AWK_CMD@'}
-: ${BASENAME:='@BASENAME_CMD@'}
-: ${DIRNAME:='@DIRNAME_CMD@'}
-: ${ED:='@ED_CMD@'}
-: ${EGREP:='@EGREP_CMD@'}
-: ${_EMACS:='@EMACS_CMD@'}
-: ${_EMACSCLIENT:='@EMACSCLIENT_CMD@'}
-: ${FIND:='@FIND_CMD@'}
-: ${HEAD:='@HEAD_CMD@'}
-: ${ID:='@ID_CMD@'}
-: ${KILL:='@KILL_CMD@'}
-: ${MKDIR:='@MKDIR_CMD@'}
-: ${MKTEMP:='@MKTEMP_CMD@'}
-: ${OSASCRIPT:='@OSASCRIPT_CMD@'}
-: ${PKILL:='@PKILL_CMD@'}
-: ${PS:='@PS_CMD@'}
-: ${READLINK:='@READLINK_CMD@'}
-: ${RM:='@RM_CMD@'}
-: ${SCRIPT:='@SCRIPT_CMD@'}
-: ${SLEEP:='@SLEEP_CMD@'}
-: ${SORT:='@SORT_CMD@'}
-: ${STAT:='@STAT_CMD@'}
-: ${TOUCH:='@TOUCH_CMD@'}
-: ${TTY:='@TTY_CMD@'}
-: ${UNAME:='@UNAME_CMD@'}
-: ${WMCTRL:='@WMCTRL_CMD@'}
+: ${AWK_CMD:='@AWK_CMD@'}
+: ${BASENAME_CMD:='@BASENAME_CMD@'}
+: ${DIRNAME_CMD:='@DIRNAME_CMD@'}
+: ${ED_CMD:='@ED_CMD@'}
+: ${EGREP_CMD:='@EGREP_CMD@'}
+: ${_EMACS_CMD:='@EMACS_CMD@'}
+: ${_EMACSCLIENT_CMD:='@EMACSCLIENT_CMD@'}
+: ${FIND_CMD:='@FIND_CMD@'}
+: ${HEAD_CMD:='@HEAD_CMD@'}
+: ${ID_CMD:='@ID_CMD@'}
+: ${KILL_CMD:='@KILL_CMD@'}
+: ${MKDIR_CMD:='@MKDIR_CMD@'}
+: ${MKTEMP_CMD:='@MKTEMP_CMD@'}
+: ${OSASCRIPT_CMD:='@OSASCRIPT_CMD@'}
+: ${PKILL_CMD:='@PKILL_CMD@'}
+: ${PS_CMD:='@PS_CMD@'}
+: ${READLINK_CMD:='@READLINK_CMD@'}
+: ${RM_CMD:='@RM_CMD@'}
+: ${SCRIPT_CMD:='@SCRIPT_CMD@'}
+: ${SLEEP_CMD:='@SLEEP_CMD@'}
+: ${SORT_CMD:='@SORT_CMD@'}
+: ${STAT_CMD:='@STAT_CMD@'}
+: ${TOUCH_CMD:='@TOUCH_CMD@'}
+: ${TTY_CMD:='@TTY_CMD@'}
+: ${UNAME_CMD:='@UNAME_CMD@'}
+: ${WMCTRL_CMD:='@WMCTRL_CMD@'}
 
 usage ()
 {
-    $ED -v <<EOF
+    $ED_CMD -v <<EOF
 a
-$($_EMACSCLIENT --help)
+$($_EMACSCLIENT_CMD --help)
 .
 1s;Usage: [^ ]\{1,\};Usage: $script_name;
 # Option \`-f' is shadowed by Emacs option \`--funcall'
@@ -123,7 +123,7 @@ server, in which case a separate Emacs process is invoked.
 # Mark last line of \`emacsclient --help'.
 \$kx
 \$a
-$($_EMACS --help)
+$($_EMACS_CMD --help)
 .
 # Remove head of \`emacs --help'.
 'x+;/options:/-d
@@ -174,9 +174,9 @@ interpreter-supported ()
 environment-is-valid ()
 {
     local -i status=0
-    local -a envlist=( AWK BASENAME DIRNAME ED EGREP _EMACS _EMACSCLIENT
-                         FIND HEAD ID KILL MKDIR MKTEMP PKILL PS RM SLEEP
-                         SORT TOUCH )
+    local -a envlist=( AWK_CMD BASENAME_CMD DIRNAME_CMD ED_CMD EGREP_CMD _EMACS_CMD _EMACSCLIENT_CMD
+                         FIND_CMD HEAD_CMD ID_CMD KILL_CMD MKDIR_CMD MKTEMP_CMD PKILL_CMD PS_CMD RM_CMD SLEEP_CMD
+                         SORT_CMD TOUCH_CMD )
 
     for var in ${envlist[*]} ; do
         if test ! -x "${!var}"; then
@@ -194,11 +194,11 @@ emacs-is-current ()
     local -i status=0
     local emacs_version
 
-    for var in _EMACS _EMACSCLIENT; do
+    for var in _EMACS_CMD _EMACSCLIENT_CMD; do
         emacs_version=$(
             ${!var} --version |
-                $HEAD -1 |
-                $AWK '{ print $NF }'
+                $HEAD_CMD -1 |
+                $AWK_CMD '{ print $NF }'
                   )
         if (( ${emacs_version%%.*} < EMACS_MAJOR_PREREQ )); then
             echo "$script_name: $emacs_version: Newer ${!var} required." >&2
@@ -210,18 +210,18 @@ emacs-is-current ()
 
 emacs-is-running ()
 {
-    $PKILL -0 -u "$($ID -u)" -f "${_EMACS##*/}.*daemon=${server_name}" >/dev/null 2>&1
+    $PKILL_CMD -0 -u "$($ID_CMD -u)" -f "${_EMACS_CMD##*/}.*daemon=${server_name}" >/dev/null 2>&1
 }
 
 emacsclient-is-running ()
 {
-    $PKILL -0 -u "$($ID -u)" -f "${_EMACSCLIENT##*/}.*${server_name}"         \
+    $PKILL_CMD -0 -u "$($ID_CMD -u)" -f "${_EMACSCLIENT_CMD##*/}.*${server_name}"         \
            >/dev/null 2>&1
 }
 
 create-frame-or-tty ()
 {
-    if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+    if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
         if ! emacsclient-is-running || $create_new_frames; then
             echo $frame_or_tty
         fi
@@ -239,8 +239,8 @@ set-for-console ()
     frame_or_tty=-nw
 
     # Provide default Emacs server name.  Overriden by option `-s'.
-    tty_name=$($TTY)
-    server_name=server$($ID -u)_${tty_name##*/}
+    tty_name=$($TTY_CMD)
+    server_name=server$($ID_CMD -u)_${tty_name##*/}
 
     # Run in foreground.
     background_op=''
@@ -274,7 +274,7 @@ start-emacs-server ()
     local server_socket_dir
 
     server_socket_dir=$(
-        $_EMACS --batch -q  \
+        $_EMACS_CMD --batch -q  \
                   --eval "(progn (server-start) (prin1 server-socket-dir))"
                           )
     if test ."$server_socket_dir" = .''; then
@@ -285,24 +285,24 @@ start-emacs-server ()
 
     # Removing any left-over socket
     if test -d "$server_socket_dir"; then
-        $FIND "$server_socket_dir" -type s 2>/dev/null |
+        $FIND_CMD "$server_socket_dir" -type s 2>/dev/null |
             while read socket; do
                 if test ."${socket##*/}" = ."$server_name"; then
-                    $RM -f "$socket"
+                    $RM_CMD -f "$socket"
                 fi
             done
     fi
 
-    $_EMACS --daemon="$server_name" >"${emacs_confdir}/${server_name}.log" 2>&1 &
+    $_EMACS_CMD --daemon="$server_name" >"${emacs_confdir}/${server_name}.log" 2>&1 &
     wait $! ||
         raise-exception 'server start'
 
     # Verify that server is accessible via emacsclient(1).
-    $_EMACSCLIENT -s "$server_name" --no-wait --eval 't' >/dev/null ||
+    $_EMACSCLIENT_CMD -s "$server_name" --no-wait --eval 't' >/dev/null ||
         raise-exception 'server access'
 
     # Print Emacs startup errors/warnings to console.
-    $EGREP -iA 7 'warning|error' "${emacs_confdir}/${server_name}.log" |
+    $EGREP_CMD -iA 7 'warning|error' "${emacs_confdir}/${server_name}.log" |
         while read diag; do
             if $first_diag; then
                 echo >&3
@@ -324,8 +324,8 @@ real-path ()
     local base
 
     if test ! -d "$dir"; then
-        dir=$(eval $DIRNAME "$file")
-        base=$(eval $BASENAME "$file")
+        dir=$(eval $DIRNAME_CMD "$file")
+        base=$(eval $BASENAME_CMD "$file")
     fi
 
     # If "Permission denied" or "No such file or directory"...
@@ -474,7 +474,7 @@ option-requests ()
                 if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
 
                     # Need eval in case of argument like `~/file'.
-                    file=$(eval $READLINK -e "${BASH_REMATCH[1]}")
+                    file=$(eval $READLINK_CMD -e "${BASH_REMATCH[1]}")
                     if test ."$file" = .''; then
                         echo "${BASH_REMATCH[1]}: No such file or directory"
                         exit 1
@@ -484,7 +484,7 @@ option-requests ()
 
                 # FILE given as second, possibly null, argument.
                 else
-                    file=$($READLINK -e "$2")
+                    file=$($READLINK_CMD -e "$2")
                     if test ."$file" = .''; then
                         echo "$2: No such file or directory"
                         exit 1
@@ -670,7 +670,7 @@ option-requests ()
                     files=${BASH_REMATCH[1]}
 
                     # Need eval in case of argument like `~/file'.
-                    file1=$(eval $READLINK -e "${files%%,*}")
+                    file1=$(eval $READLINK_CMD -e "${files%%,*}")
                     if test ."$file1" = .''; then
                         echo "${files%%,*}: No such file or directory"
                         exit 1
@@ -679,26 +679,26 @@ option-requests ()
                     files=${files#*,}
 
                     # Need eval in case of argument like `~/file'.
-                    file2=$(eval $READLINK -e "${files%%,*}")
+                    file2=$(eval $READLINK_CMD -e "${files%%,*}")
                     if test ."$file2" = .''; then
                         echo "${files%%,*}: No such file or directory"
                         exit 1
                     elif test ."$file2" != ."$files"; then
 
                         # Need eval in case of argument like `~/file'.
-                        file3=$(eval $READLINK -f "${files#*,}")
+                        file3=$(eval $READLINK_CMD -f "${files#*,}")
                     fi
                     OPTIND+=1
                     shift
 
                 # FILEs given as second and third, possibly null, arguments.
                 else
-                    file1=$($READLINK -e "$2")
+                    file1=$($READLINK_CMD -e "$2")
                     if test ."$file1" = .''; then
                         echo "$2: No such file or directory"
                         exit 1
                     fi
-                    file2=$($READLINK -e "$3")
+                    file2=$($READLINK_CMD -e "$3")
                     if test ."$file2" = .''; then
                         echo "$3: No such file or directory"
                         exit 1
@@ -754,17 +754,17 @@ option-requests ()
                 fi
 
                 # Expand $directory path in canonical form.
-                case "$($UNAME)" in
+                case "$($UNAME_CMD)" in
                     Darwin)
                         directory=$(absolute-path "$directory")
                         ;;
                     *)
-                        directory=$($READLINK -f "$directory")
+                        directory=$($READLINK_CMD -f "$directory")
                         ;;
                 esac
 
                 # Prefix autoload filename with last element of $directory path.
-                loaddefs=$($BASENAME "$directory")
+                loaddefs=$($BASENAME_CMD "$directory")
                 loaddefs+='-loaddefs.el'
 
                 # Update directory autoloads to `$(basename DIR)-loaddefs.el'.
@@ -776,7 +776,7 @@ option-requests ()
                 argv[argc++]+='"))'
 
                 # Emacs-specific argument, so invoke emacs(1).
-                _EMACSCLIENT=$_EMACS
+                _EMACSCLIENT_CMD=$_EMACS_CMD
                 ;;
 
             # Extension option `--wait'
@@ -830,7 +830,7 @@ option-requests ()
                 fi
 
                 # Emacs-specific argument, so invoke Emacs.
-                _EMACSCLIENT=$_EMACS
+                _EMACSCLIENT_CMD=$_EMACS_CMD
                 ;;
 
             # emacslcient options `-s' and `--socket-name'.
@@ -875,7 +875,7 @@ option-requests ()
                 shift
 
                 # Emacs-specific argument, so invoke Emacs.
-                _EMACSCLIENT=$_EMACS
+                _EMACSCLIENT_CMD=$_EMACS_CMD
                 ;;
 
             # emacsclient option `--create-frame'.
@@ -899,7 +899,7 @@ option-requests ()
                 set -x
 
                 # Emacs-specific argument, so invoke Emacs.
-                _EMACSCLIENT=$_EMACS
+                _EMACSCLIENT_CMD=$_EMACS_CMD
                 ;;
 
             # Emacs/emacsclient option `--eval'.
@@ -1028,8 +1028,8 @@ option-requests ()
                 ;;
 
             -V|--version)
-                $ED - <<EOF
-r !"$_EMACSCLIENT" --version
+                $ED_CMD - <<EOF
+r !"$_EMACSCLIENT_CMD" --version
 s/[[:space:]]\{1,\}/ and GNU Emacs front end /p
 q
 EOF
@@ -1053,8 +1053,8 @@ EOF
         fi
     done
 
-    if test ."$server_name" = .'' -a ."$_EMACSCLIENT" != ."$_EMACS"; then
-        server_name="server$($ID -u)"
+    if test ."$server_name" = .'' -a ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
+        server_name="server$($ID_CMD -u)"
         argv[argc++]='-s'
         argv[argc++]=$server_name
     fi
@@ -1084,7 +1084,7 @@ if test ."$0" = ."${BASH_SOURCE[0]}"; then
 
     # If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
     declare emacs_verify_kill=false
-    declare emacs_kill_timeout=10
+    declare emacs_kill_timeout=3
 
     # Default error message.
     declare error_diagnostic='Failed to connect to server.
@@ -1096,7 +1096,7 @@ To start the server in Emacs, type "M-x server-start".'
         set -- --buffer='*scratch*'
     fi
 
-    case "$($UNAME)" in
+    case "$($UNAME_CMD)" in
         Linux)
             declare stat_flag=-c
             ;;
@@ -1112,18 +1112,18 @@ To start the server in Emacs, type "M-x server-start".'
         # Client and server differ...
         if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
             set-for-console
-            if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+            if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
                 set -- --socket-name="$server_name" "$@"
             fi
         fi
     fi
 
-    # If TTY doesn't belong to us, then...
-    if (( $($STAT "${stat_flag}" '%u' $($TTY)) != $($ID -u) )); then
+    # If TTY_CMD doesn't belong to us, then...
+    if (( $($STAT_CMD "${stat_flag}" '%u' $($TTY_CMD)) != $($ID_CMD -u) )); then
 
         # Could exec `script', but Emacs daemon wouldn't be accessible
         # after exit, so just call Emacs directly.
-        _EMACSCLIENT=$_EMACS
+        _EMACSCLIENT_CMD=$_EMACS_CMD
         set-for-console
 
         # SUDO session.
@@ -1131,20 +1131,20 @@ To start the server in Emacs, type "M-x server-start".'
               ."$SUDO_USER" != .'' -a \
               ."$SUDO_USER" != "$USER"; then
         set-for-console
-        if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+        if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
             set -- --socket-name="$server_name" "$@"
         fi
     fi
 
     # On non-Apple/Microsoft systems, if X11 display not set, assume
     # running in console.
-    case "$($UNAME)" in
+    case "$($UNAME_CMD)" in
         Darwin|Windows)
         ;;
         *)
             if test ."$server_name" = .'' -a ."$DISPLAY" = .''; then
                 set-for-console
-                if test ."$_EMACSCLIENT" != ."$_EMACS"; then
+                if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
                     set -- --socket-name="$server_name" "$@"
                 fi
             fi
@@ -1153,7 +1153,7 @@ To start the server in Emacs, type "M-x server-start".'
 
     exec 3>&2
 
-    stderr_cache=$($MKTEMP "${TMPDIR:-/tmp}/emacsclient.XXXXX") || {
+    stderr_cache=$($MKTEMP_CMD "${TMPDIR:-/tmp}/emacsclient.XXXXX") || {
         error_diagnostic="Failed to create temp file"
         raise-exception 'mktemp'
     }
@@ -1172,16 +1172,16 @@ To start the server in Emacs, type "M-x server-start".'
 
     # Ensure that Emacs config directory exists for logging.
     if test ! -d "$emacs_confdir"; then
-        $MKDIR -p "$emacs_confdir"
-        $TOUCH "${emacs_confdir}/auto-insert.el"
+        $MKDIR_CMD -p "$emacs_confdir"
+        $TOUCH_CMD "${emacs_confdir}/auto-insert.el"
     fi
 
-    trap 'test -f "$stderr_cache" && $RM -f "$stderr_cache"; exit $error_status' 0 1 2 15
+    trap 'test -f "$stderr_cache" && $RM_CMD -f "$stderr_cache"; exit $error_status' 0 1 2 15
 
     # $enable_trace || exec 1>/dev/null 2>"$stderr_cache"
     $enable_trace || exec 2>"$stderr_cache"
 
-    if test ."$_EMACSCLIENT" = ."$_EMACS"; then
+    if test ."$_EMACSCLIENT_CMD" = ."$_EMACS_CMD"; then
         switch-to-emacs
     elif $allow_server_start && ! emacs-is-running; then
         start-emacs-server
@@ -1200,12 +1200,12 @@ To start the server in Emacs, type "M-x server-start".'
                 fi
             done
             eval '{
-            "$_EMACSCLIENT" $(create-frame-or-tty)                            \
+            "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                            \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
             raise-exception sequence
         }' $background_op
-            $SLEEP $until_buffer_loads
+            $SLEEP_CMD $until_buffer_loads
         fi
 
         # Simultaneously open files...
@@ -1221,12 +1221,12 @@ To start the server in Emacs, type "M-x server-start".'
                     argx="${super_user_prefix}$f"
                 fi
                 eval '{
-                "$_EMACSCLIENT" $(create-frame-or-tty)                        \
+                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                        \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
                 raise-exception many frames
             }' $background_op
-                $SLEEP $until_buffer_loads
+                $SLEEP_CMD $until_buffer_loads
             done
         else
             for f in "$@"; do
@@ -1236,12 +1236,12 @@ To start the server in Emacs, type "M-x server-start".'
                     argx="${super_user_prefix}$f"
                 fi
                 eval '{
-                "$_EMACSCLIENT" $(create-frame-or-tty)                        \
+                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                        \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
                 raise-exception preload
             }' $background_op
-                $SLEEP $until_buffer_loads
+                $SLEEP_CMD $until_buffer_loads
                 create_new_frames='false'
             done
         fi
@@ -1249,7 +1249,7 @@ To start the server in Emacs, type "M-x server-start".'
         # No file args...
         if (( $# == 0 )); then
             eval '{
-                "$_EMACSCLIENT" $(create-frame-or-tty)                        \
+                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                        \
                             ${argv[0]:+"${argv[@]}"} ||
                 raise-exception no file args
             }' $background_op
@@ -1257,16 +1257,16 @@ To start the server in Emacs, type "M-x server-start".'
     fi
 
     if test ."$background_op" != .''; then
-        if test -x "$WMCTRL"; then
-            if $WMCTRL -l | $EGREP -q 'emacs@'; then
-                $WMCTRL -a 'emacs@'
+        if test -x "$WMCTRL_CMD"; then
+            if $WMCTRL_CMD -l | $EGREP_CMD -q 'emacs@'; then
+                $WMCTRL_CMD -a 'emacs@'
             else
-                eval $WMCTRL ${1:+"-a ${1##*/}"}
+                eval $WMCTRL_CMD ${1:+"-a ${1##*/}"}
             fi
-        elif test -x "$OSASCRIPT"; then
+        elif test -x "$OSASCRIPT_CMD"; then
             emacs_frontmost='tell application "System Events" '
             emacs_frontmost+='to set frontmost of process "Emacs" to true'
-            $OSASCRIPT -e "$emacs_frontmost"
+            $OSASCRIPT_CMD -e "$emacs_frontmost"
         fi
 
         # Append newline after "Waiting for Emacs..."
@@ -1275,8 +1275,8 @@ To start the server in Emacs, type "M-x server-start".'
 
     if $emacs_verify_kill; then
         echo "Stopping Server..." >&3
-        $SLEEP $emacs_kill_timeout
-        $PKILL -9 -u "$($ID -u)" -f "${_EMACS##*/}.*daemon=${server_name}"
+        $SLEEP_CMD $emacs_kill_timeout
+        $PKILL_CMD -9 -u "$($ID_CMD -u)" -f "${_EMACS_CMD##*/}.*daemon=${server_name}"
     fi
 fi
 
