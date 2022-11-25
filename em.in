@@ -1193,6 +1193,10 @@ To start the server in Emacs, type "M-x server-start".'
         if test -n "$(echo ${argv[@]})" -o -n "$(echo $@)"; then
             i=0
             for f in "$@"; do
+                if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
+                    argv+=( "+${BASH_REMATCH[2]}" )
+                    f=${BASH_REMATCH[1]}
+                fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
                     argx[i++]="${super_user_prefix}$PWD/$f"
                 else
@@ -1200,7 +1204,7 @@ To start the server in Emacs, type "M-x server-start".'
                 fi
             done
             eval '{
-            "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                            \
+            "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                        \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
             raise-exception sequence
@@ -1215,13 +1219,17 @@ To start the server in Emacs, type "M-x server-start".'
         if $create_many_new_frames; then
             i=0
             for f in "$@"; do
+                if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
+                    argv+=( "+${BASH_REMATCH[2]}" )
+                    f=${BASH_REMATCH[1]}
+                fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
                     argx="${super_user_prefix}$PWD/$f"
                 else
                     argx="${super_user_prefix}$f"
                 fi
                 eval '{
-                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                        \
+                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                    \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
                 raise-exception many frames
@@ -1230,13 +1238,17 @@ To start the server in Emacs, type "M-x server-start".'
             done
         else
             for f in "$@"; do
+                if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
+                    argv+=( "+${BASH_REMATCH[2]}" )
+                    f=${BASH_REMATCH[1]}
+                fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
                     argx="${super_user_prefix}$PWD/$f"
                 else
                     argx="${super_user_prefix}$f"
                 fi
                 eval '{
-                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                        \
+                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                    \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
                 raise-exception preload
@@ -1249,7 +1261,7 @@ To start the server in Emacs, type "M-x server-start".'
         # No file args...
         if (( $# == 0 )); then
             eval '{
-                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                        \
+                "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                    \
                             ${argv[0]:+"${argv[@]}"} ||
                 raise-exception no file args
             }' $background_op
