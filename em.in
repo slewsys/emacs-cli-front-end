@@ -2,7 +2,7 @@
 #
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2021 Andrew L. Moore
+# Copyright © 2023 Andrew L. Moore
 #
 # This script runs emacs(1) and/or emacsclient(1) as appropriate per
 # given command-line arguments. For interactive sessions, emacs(1) is
@@ -51,13 +51,11 @@
 #
 shopt -s extglob
 
-script_name=${0##*/}
-
 : ${AWK_CMD:='@AWK_CMD@'}
 : ${BASENAME_CMD:='@BASENAME_CMD@'}
 : ${DIRNAME_CMD:='@DIRNAME_CMD@'}
 : ${ED_CMD:='@ED_CMD@'}
-: ${EGREP_CMD:='@EGREP_CMD@'}
+: ${GREP_CMD:='@GREP_CMD@'}
 : ${_EMACS_CMD:='@EMACS_CMD@'}
 : ${_EMACSCLIENT_CMD:='@EMACSCLIENT_CMD@'}
 : ${FIND_CMD:='@FIND_CMD@'}
@@ -71,7 +69,6 @@ script_name=${0##*/}
 : ${PS_CMD:='@PS_CMD@'}
 : ${READLINK_CMD:='@READLINK_CMD@'}
 : ${RM_CMD:='@RM_CMD@'}
-: ${SCRIPT_CMD:='@SCRIPT_CMD@'}
 : ${SLEEP_CMD:='@SLEEP_CMD@'}
 : ${SORT_CMD:='@SORT_CMD@'}
 : ${STAT_CMD:='@STAT_CMD@'}
@@ -148,7 +145,7 @@ EOF
 }
 
 # Check shell interpreter version.
-interpreter-supported ()
+is-supported-shell ()
 {
     # $BASH_VERSION prerequisites (want: option `-n')
     local -i BASH_MAJOR_PREREQ=4
@@ -170,59 +167,74 @@ interpreter-supported ()
     return 0
 }
 
+# OS-agnstoic readlink for existent files/directories.
+resolve-existing ()
+{
+    if $READLINK_CMD --version 2>&1 | $GREP_CMD -q 'coreutils'; then
+        $READLINK_CMD -e "$@"
+    else
+        $READLINK_CMD -f N "$@"
+    fi
+}
+
 # Check command paths.
-environment-is-valid ()
+is-valid-environment ()
 {
     local -i status=0
-    local -a envlist=( AWK_CMD BASENAME_CMD DIRNAME_CMD ED_CMD EGREP_CMD _EMACS_CMD _EMACSCLIENT_CMD
-                         FIND_CMD HEAD_CMD ID_CMD KILL_CMD MKDIR_CMD MKTEMP_CMD PKILL_CMD PS_CMD RM_CMD SLEEP_CMD
-                         SORT_CMD TOUCH_CMD )
+    local -a envlist=(
+        AWK_CMD BASENAME_CMD DIRNAME_CMD ED_CMD GREP_CMD _EMACS_CMD
+        _EMACSCLIENT_CMD FIND_CMD HEAD_CMD ID_CMD KILL_CMD MKDIR_CMD
+        MKTEMP_CMD PKILL_CMD PS_CMD READLINK_CMD RM_CMD SLEEP_CMD
+        SORT_CMD STAT_CMD TOUCH_CMD TTY_CMD UNAME_CMD
+    )
 
-    for var in ${envlist[*]} ; do
-        if test ! -x "${!var}"; then
-            echo "$script_name: ${!var}: Cannot exec" >&2
+    for var in ${envlist[*]}; do
+        if ! command -v "${!var}" >/dev/null; then
+            echo "$script_name: $var: Cannot exec referenced command" >&2
             status+=1
         fi
     done
+
     return $status
 }
 
 # Check Emacs version.
-emacs-is-current ()
+is-current-emacs ()
 {
     local -i EMACS_MAJOR_PREREQ=25
     local -i status=0
     local emacs_version
 
-    for var in _EMACS_CMD _EMACSCLIENT_CMD; do
+    for editor in _EMACS_CMD _EMACSCLIENT_CMD; do
         emacs_version=$(
-            ${!var} --version |
+            ${!editor} --version |
                 $HEAD_CMD -1 |
                 $AWK_CMD '{ print $NF }'
                   )
         if (( ${emacs_version%%.*} < EMACS_MAJOR_PREREQ )); then
-            echo "$script_name: $emacs_version: Newer ${!var} required." >&2
+            echo "$script_name: $emacs_version: Newer ${!editor} required." >&2
             status+=1
         fi
     done
     return $status
 }
 
-emacs-is-running ()
+is-running-emacs ()
 {
-    $PKILL_CMD -0 -u "$($ID_CMD -u)" -f "${_EMACS_CMD##*/}.*daemon=${server_name}" >/dev/null 2>&1
+    $PKILL_CMD -0 -u "$user_id" -f                                       \
+               "${_EMACS_CMD##*/}.*daemon=.*${server_name}" >/dev/null 2>&1
 }
 
-emacsclient-is-running ()
+is-running-emacsclient ()
 {
-    $PKILL_CMD -0 -u "$($ID_CMD -u)" -f "${_EMACSCLIENT_CMD##*/}.*${server_name}"         \
-           >/dev/null 2>&1
+    $PKILL_CMD -0 -u "$user_id" -f                                       \
+               "${_EMACSCLIENT_CMD##*/}.*${server_name}" >/dev/null 2>&1
 }
 
 create-frame-or-tty ()
 {
     if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
-        if ! emacsclient-is-running || $create_new_frames; then
+        if ! is-running-emacsclient || $create_new_frames; then
             echo $frame_or_tty
         fi
     elif test ."$frame_or_tty" != .'--create-frame'; then
@@ -230,7 +242,7 @@ create-frame-or-tty ()
     fi
 }
 
-set-for-console ()
+configure-for-console ()
 {
     # No frames, by default.
     preload_files=false
@@ -239,8 +251,7 @@ set-for-console ()
     frame_or_tty=-nw
 
     # Provide default Emacs server name.  Overriden by option `-s'.
-    tty_name=$($TTY_CMD)
-    server_name=server$($ID_CMD -u)_${tty_name##*/}
+    server_name=server_${user_name}_${tty_name##*/}
 
     # Run in foreground.
     background_op=''
@@ -293,7 +304,8 @@ start-emacs-server ()
             done
     fi
 
-    $_EMACS_CMD --daemon="$server_name" >"${emacs_confdir}/${server_name}.log" 2>&1 &
+    $_EMACS_CMD --daemon="$server_name"                                         \
+                >"${emacs_confdir}/${server_name}.log" 2>&1 &
     wait $! ||
         raise-exception 'server start'
 
@@ -302,7 +314,7 @@ start-emacs-server ()
         raise-exception 'server access'
 
     # Print Emacs startup errors/warnings to console.
-    $EGREP_CMD -iA 7 'warning|error' "${emacs_confdir}/${server_name}.log" |
+    $GREP_CMD -E -iA 7 'warning|error' "${emacs_confdir}/${server_name}.log" |
         while read diag; do
             if $first_diag; then
                 echo >&3
@@ -312,66 +324,23 @@ start-emacs-server ()
         done
 }
 
-# real-path: Return absolute path of file or directory, if given,
-# otherwise current directory. Neither file nor directory need exist.
-real-path ()
+tty-owner-id ()
 {
-    local file
-    printf -v file '%q' "$1"
+    if $STAT_CMD --version | $GREP_CMD -q 'coreutils'; then
 
-    local dir=$1
-    local realdir
-    local base
-
-    if test ! -d "$dir"; then
-        dir=$(eval $DIRNAME_CMD "$file")
-        base=$(eval $BASENAME_CMD "$file")
-    fi
-
-    # If "Permission denied" or "No such file or directory"...
-    if ! realdir=$(cd "${dir:-'.'}" >/dev/null 2>&1 && pwd -P); then
-
-        # If $dir is absolute...
-        if [[ ."$dir" =~ ^\./.* ]]; then
-
-            # Use $dir as is.
-            realdir=$dir
-
-        # If $dir is relative...
-        else
-
-            # Prefix $dir with $(pwd).
-            realdir=$(pwd -P)/${dir}
-        fi
-    fi
-
-    # If $base empty or not defined (because $file is directory)...
-    if test ."$base" = .''; then
-        echo "${realdir%%+(/)}"
+        # GNU stat...
+        stat_flag=-c
     else
-        echo "${realdir%%+(/)}/${base}"
-    fi
-}
 
-# absolute-path: Return path of file relative to dir if given,
-# otherwise current directory. If file is not given or is null, return
-# path of (non-null) dir if given, otherwise current directory.
-absolute-path ()
-{
-    local file=$1
-    local dir=$2
-
-    if test ."$file" = .'' -a ."$dir" = .''; then
-        real-path .
-    elif [[ ."$file" =~ ^\./.* ]] || test ."$dir" = .''; then
-        real-path "$file"
-    else
-        real-path "${dir}/${file}"
+        # BSD stat
+        stat_flag=-f
     fi
+
+    $STAT_CMD "${stat_flag}" '%u' "$tty_name"
 }
 
 # Parse command-line options for requests.
-option-requests ()
+parse-options ()
 {
     local buffer=''
     local directory=''
@@ -474,7 +443,7 @@ option-requests ()
                 if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
 
                     # Need eval in case of argument like `~/file'.
-                    file=$(eval $READLINK_CMD -e "${BASH_REMATCH[1]}")
+                    file=$(eval resolve-existing "${BASH_REMATCH[1]}")
                     if test ."$file" = .''; then
                         echo "${BASH_REMATCH[1]}: No such file or directory"
                         exit 1
@@ -484,7 +453,7 @@ option-requests ()
 
                 # FILE given as second, possibly null, argument.
                 else
-                    file=$($READLINK_CMD -e "$2")
+                    file=$(resolve-existing "$2")
                     if test ."$file" = .''; then
                         echo "$2: No such file or directory"
                         exit 1
@@ -506,16 +475,6 @@ option-requests ()
 
             # Extension option `--new-frame'; visit file in new frame.
             --new*|-new*)
-                preload_files='false'
-                create_new_frames='true'
-                create_many_new_frames='false'
-                frame_or_tty='--create-frame'
-                OPTIND+=1
-                shift
-                ;;
-
-            # Extension option `--other-frame'; visit file in new frame.
-            --ot*|-ot*)
                 preload_files='false'
                 create_new_frames='true'
                 create_many_new_frames='false'
@@ -577,7 +536,7 @@ option-requests ()
                     OPTIND+=2
                     shift 2
                 else
-                    raise-exception "option-requests: Invalid SSH argument"
+                    raise-exception "parse-options: Invalid SSH argument"
                 fi
                 argv[argc++]+='")'
                 ;;
@@ -622,7 +581,7 @@ option-requests ()
                     OPTIND+=2
                     shift 2
                 else
-                    raise-exception "option-requests: Invalid SSH argument"
+                    raise-exception "parse-options: Invalid SSH argument"
                 fi
                 argv[argc++]+='")'
                 ;;
@@ -649,9 +608,9 @@ option-requests ()
                 shift
 
                 # Any prerequisites not met...
-                if ! interpreter-supported ||
-                        ! environment-is-valid ||
-                        ! emacs-is-current; then
+                if ! is-supported-shell ||
+                        ! is-valid-environment ||
+                        ! is-current-emacs; then
                     exit $?
                 fi
 
@@ -670,7 +629,7 @@ option-requests ()
                     files=${BASH_REMATCH[1]}
 
                     # Need eval in case of argument like `~/file'.
-                    file1=$(eval $READLINK_CMD -e "${files%%,*}")
+                    file1=$(eval resolve-existing "${files%%,*}")
                     if test ."$file1" = .''; then
                         echo "${files%%,*}: No such file or directory"
                         exit 1
@@ -679,26 +638,32 @@ option-requests ()
                     files=${files#*,}
 
                     # Need eval in case of argument like `~/file'.
-                    file2=$(eval $READLINK_CMD -e "${files%%,*}")
+                    file2=$(eval resolve-existing "${files%%,*}")
                     if test ."$file2" = .''; then
                         echo "${files%%,*}: No such file or directory"
                         exit 1
                     elif test ."$file2" != ."$files"; then
 
                         # Need eval in case of argument like `~/file'.
-                        file3=$(eval $READLINK_CMD -f "${files#*,}")
+                        eval file3=${files#*,}
+                        if [[ ! ."$file3" =~ ^\./ ]]; then
+
+                            # Since file3 need not exist, resolve-existing
+                            # may not work on it.
+                            file3=$(resolve-existing '.')/${file3}
+                        fi
                     fi
                     OPTIND+=1
                     shift
 
                 # FILEs given as second and third, possibly null, arguments.
                 else
-                    file1=$($READLINK_CMD -e "$2")
+                    file1=$(resolve-existing "$2")
                     if test ."$file1" = .''; then
                         echo "$2: No such file or directory"
                         exit 1
                     fi
-                    file2=$($READLINK_CMD -e "$3")
+                    file2=$(resolve-existing "$3")
                     if test ."$file2" = .''; then
                         echo "$3: No such file or directory"
                         exit 1
@@ -753,15 +718,7 @@ option-requests ()
                     directory='.'
                 fi
 
-                # Expand $directory path in canonical form.
-                case "$($UNAME_CMD)" in
-                    Darwin)
-                        directory=$(absolute-path "$directory")
-                        ;;
-                    *)
-                        directory=$($READLINK_CMD -f "$directory")
-                        ;;
-                esac
+                directory=$(resolve-existing "$directory")
 
                 # Prefix autoload filename with last element of $directory path.
                 loaddefs=$($BASENAME_CMD "$directory")
@@ -798,21 +755,18 @@ option-requests ()
 
             # Emacs option `-f' shadows emacsclient variation of
             # `--server-file' option.
-            --bac*|-bac*|-bg|                                                 \
+            --bac*|-bac*|-bg|--bg-*|-bg-*|                                    \
                 --bo*|-bo*|-bd|-bw|                                           \
                 --ch*|-ch*|--co*|-co*|--cu*|-cu*|-cr|                         \
-                --da*|-da*|--fg*|-fg-*|--bg*|-bg-*|                           \
-                --di*|-di*|-L|                                                \
-                -F|--fun*|-fun*|-f|                                           \
-                --fo[nr]*|-fo[nr]*|-fn|-fg|                                   \
-                --g*|-g*|-ib|                                                 \
-                --l[oi]*|-l[oi]*|-l|-lsp|                                     \
-                --mo*|-mo*|-ms|                                               \
-                --na*|-na*|                                                   \
-                --pa*|-pa*|--se*|-se*|                                        \
+                --da*|-da*|--di*|-di*|--du*|-du*|-d|                          \
+                --fi[nl]*|-fi[nl]*|--fo[nr]*|-fo[nr]*|-fn|-fg|                \
+                --fg-*|-fg-*|-F|--fun*|-fun*|-f|                              \
+                --g*|-g*|-ib|--in[ist]*|-in[ist]*|                            \
+                -L|--l[oi]*|-l[oi]*|-lsp|-l|                                  \
+                --mou*|-mou*|-ms|--na*|-na*|                                  \
+                --pa*|-pa*|--sc*|-sc*|--se*|-se*|                             \
                 --t[ei]*|-t[ei]*|-T|-t|                                       \
-                --u*|-us*|                                                    \
-                --x*)
+                --u*|-us*|--vi*|-vi*|--xr*|-xr*)
 
                 # OPTARG given as --opt=OPTARG.
                 if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
@@ -865,11 +819,11 @@ option-requests ()
             --bas*|-bas*|-D|                                                  \
                 --bat*|-bat*|                                                 \
                 --ful*|-ful*|-fh|-fs|-fw|                                     \
-                --ic*|-ic*|--max*|-max*|-mn80|                                \
+                --ic*|-ic*|--max*|-max*|-mm|--mod*|-mod*|                     \
                 --no-*|-no-*|-nbc|-nbi|-nl|-nsl|-q|                           \
                 --qu*|-qu*|-Q|                                                \
                 --re*|-r|-rv|                                                 \
-                --ve*|-ve*|-vb)
+                --ve*|-ve*|-vb|-x)
                 argv[argc++]=$1
                 OPTIND+=1
                 shift
@@ -1054,33 +1008,36 @@ EOF
     done
 
     if test ."$server_name" = .'' -a ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
-        server_name="server$($ID_CMD -u)"
+        server_name=server_${user_name}
         argv[argc++]='-s'
         argv[argc++]=$server_name
     fi
 }
 
 if test ."$0" = ."${BASH_SOURCE[0]}"; then
+    declare script_name=${0##*/}
     declare emacs_confdir=${HOME}/.emacs.d
 
     # Delay in seconds while buffer loads (system dependent).
     declare until_buffer_loads=0.5
 
     # Initialize options
+    declare -a argv=()
+    declare -a argx=()
+    declare -i user_id=$($ID_CMD -u)
     declare allow_server_start=true
+    declare argc=0
+    declare background_op='&'
     declare create_many_new_frames=false
     declare create_new_frames=false
     declare enable_trace=false
+    declare frame_or_tty=--create-frame
     declare preload_files=false
+    declare server_name=''
     declare super_user=''
     declare super_user_prefix=''
-    declare server_name=''
-    declare tty_name=''
-    declare background_op='&'
-    declare frame_or_tty=--create-frame
-    declare -a argv=()
-    declare -a argx=()
-    declare argc=0
+    declare tty_name=$($TTY_CMD)
+    declare user_name=$($ID_CMD -un)
 
     # If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
     declare emacs_verify_kill=false
@@ -1096,54 +1053,45 @@ To start the server in Emacs, type "M-x server-start".'
         set -- --buffer='*scratch*'
     fi
 
-    case "$($UNAME_CMD)" in
-        Linux)
-            declare stat_flag=-c
-            ;;
-        *)
-            declare stat_flag=-f
-            ;;
-    esac
-
     # SSH session.
     if test ."$SSH_TTY" != .''; then
         declare -a endpoint=( $SSH_CONNECTION )
 
-        # Client and server differ...
+        # Client and server IPs differ...
         if test ."${endpoint[0]}" != ."${endpoint[2]}"; then
-            set-for-console
+            configure-for-console
             if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
                 set -- --socket-name="$server_name" "$@"
             fi
         fi
     fi
 
-    # If TTY_CMD doesn't belong to us, then...
-    if (( $($STAT_CMD "${stat_flag}" '%u' $($TTY_CMD)) != $($ID_CMD -u) )); then
+    if (( $(tty-owner-id) != user_id )); then
 
         # Could exec `script', but Emacs daemon wouldn't be accessible
         # after exit, so just call Emacs directly.
         _EMACSCLIENT_CMD=$_EMACS_CMD
-        set-for-console
-
-        # SUDO session.
+        configure-for-console
     elif test ."$server_name" = .'' -a \
               ."$SUDO_USER" != .'' -a \
               ."$SUDO_USER" != "$USER"; then
-        set-for-console
+
+        #
+        configure-for-console
         if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
             set -- --socket-name="$server_name" "$@"
         fi
     fi
 
-    # On non-Apple/Microsoft systems, if X11 display not set, assume
-    # running in console.
+    # On non-Apple/Microsoft systems, if Wayland and/or X11 display
+    # not set, assume running in console.
     case "$($UNAME_CMD)" in
         Darwin|Windows)
         ;;
         *)
-            if test ."$server_name" = .'' -a ."$DISPLAY" = .''; then
-                set-for-console
+            if test ."$server_name" = .'' \
+                    -a \( ."$DISPLAY" = .'' -a ."$WAYLAND_DISPLAY" = .'' \); then
+                configure-for-console
                 if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
                     set -- --socket-name="$server_name" "$@"
                 fi
@@ -1160,7 +1108,7 @@ To start the server in Emacs, type "M-x server-start".'
 
     # Only help or version requested.
     OPTIND=1
-    if ! option-requests "$@"; then
+    if ! parse-options "$@"; then
         exit 0
     fi
 
@@ -1183,7 +1131,7 @@ To start the server in Emacs, type "M-x server-start".'
 
     if test ."$_EMACSCLIENT_CMD" = ."$_EMACS_CMD"; then
         switch-to-emacs
-    elif $allow_server_start && ! emacs-is-running; then
+    elif $allow_server_start && ! is-running-emacs; then
         start-emacs-server
     fi
 
@@ -1270,7 +1218,7 @@ To start the server in Emacs, type "M-x server-start".'
 
     if test ."$background_op" != .''; then
         if test -x "$WMCTRL_CMD"; then
-            if $WMCTRL_CMD -l | $EGREP_CMD -q 'emacs@'; then
+            if $WMCTRL_CMD -l | $GREP_CMD -q 'emacs@'; then
                 $WMCTRL_CMD -a 'emacs@'
             else
                 eval $WMCTRL_CMD ${1:+"-a ${1##*/}"}
@@ -1288,13 +1236,7 @@ To start the server in Emacs, type "M-x server-start".'
     if $emacs_verify_kill; then
         echo "Stopping Server..." >&3
         $SLEEP_CMD $emacs_kill_timeout
-        $PKILL_CMD -9 -u "$($ID_CMD -u)" -f "${_EMACS_CMD##*/}.*daemon=${server_name}"
+        $PKILL_CMD -9 -u "$user_id" -f                                   \
+                   "${_EMACS_CMD##*/}.*daemon=${server_name}"
     fi
 fi
-
-#
-# Local variables:
-# mode: shell-script
-# coding: utf-8-unix
-# End:
-#

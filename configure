@@ -624,7 +624,6 @@ TOUCH_CMD
 STAT_CMD
 SORT_CMD
 SLEEP_CMD
-SCRIPT_CMD
 RM_CMD
 READLINK_CMD
 PS_CMD
@@ -635,12 +634,11 @@ MKDIR_CMD
 KILL_CMD
 ID_CMD
 HEAD_CMD
-GETCONF_CMD
 FIND_CMD
 EMACSCLIENT_CMD
 EMACS_LISP_DIR
 EMACS_CMD
-EGREP_CMD
+GREP_CMD
 ED_CMD
 DIRNAME_CMD
 BASENAME_CMD
@@ -2567,9 +2565,10 @@ fi
   test -n "$AWK_CMD" && break
 done
 
-
-# Extract the first word of "basename", so it can be a program name with args.
-set dummy basename; ac_word=$2
+for ac_prog in gbasename basename
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_BASENAME_CMD+y}
@@ -2613,8 +2612,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "dirname", so it can be a program name with args.
-set dummy dirname; ac_word=$2
+  test -n "$BASENAME_CMD" && break
+done
+
+for ac_prog in gdirname dirname
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_DIRNAME_CMD+y}
@@ -2656,6 +2660,10 @@ else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 fi
+
+
+  test -n "$DIRNAME_CMD" && break
+done
 
 
 # Extract the first word of "ed", so it can be a program name with args.
@@ -2703,17 +2711,18 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "egrep", so it can be a program name with args.
-set dummy egrep; ac_word=$2
+
+# Extract the first word of "ggrep grep", so it can be a program name with args.
+set dummy ggrep grep; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_EGREP_CMD+y}
+if test ${ac_cv_path_GREP_CMD+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  case $EGREP_CMD in
+  case $GREP_CMD in
   [\\/]* | ?:[\\/]*)
-  ac_cv_path_EGREP_CMD="$EGREP_CMD" # Let the user override the test with a path.
+  ac_cv_path_GREP_CMD="$GREP_CMD" # Let the user override the test with a path.
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
@@ -2727,7 +2736,7 @@ do
   esac
     for ac_exec_ext in '' $ac_executable_extensions; do
   if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_EGREP_CMD="$as_dir$ac_word$ac_exec_ext"
+    ac_cv_path_GREP_CMD="$as_dir$ac_word$ac_exec_ext"
     printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -2738,10 +2747,10 @@ IFS=$as_save_IFS
   ;;
 esac
 fi
-EGREP_CMD=$ac_cv_path_EGREP_CMD
-if test -n "$EGREP_CMD"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $EGREP_CMD" >&5
-printf "%s\n" "$EGREP_CMD" >&6; }
+GREP_CMD=$ac_cv_path_GREP_CMD
+if test -n "$GREP_CMD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $GREP_CMD" >&5
+printf "%s\n" "$GREP_CMD" >&6; }
 else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
@@ -2764,7 +2773,7 @@ else $as_nop
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in /Applications/Emacs.app/Contents/MacOS$PATH_SEPARATOR$PATH
+for as_dir in /Applications/MacPorts/Emacs.app/Contents/MacOS$PATH_SEPARATOR$PATH
 do
   IFS=$as_save_IFS
   case $as_dir in #(((
@@ -2797,9 +2806,9 @@ fi
 
 
 # If Emacs.app on case-insensitive filesystem...
-if test ."$EMACS_CMD" = ."/Applications/Emacs.app/Contents/MacOS/emacs"; then
-  EMACS_CMD='/Applications/Emacs.app/Contents/MacOS/Emacs'
-  EMACS_LISP_DIR=/Applications/Emacs.app/Contents/Resources/lisp
+if test ."$EMACS_CMD" = ."/Applications/MacPorts/Emacs.app/Contents/MacOS/emacs"; then
+  EMACS_CMD='/Applications/MacPorts/Emacs.app/Contents/MacOS/Emacs'
+  EMACS_LISP_DIR=/Applications/MacPorts/Emacs.app/Contents/Resources/lisp
 
 elif test ."$prefix" = .'NONE'; then
   EMACS_LISP_DIR=${ac_default_prefix}/share/emacs/resources/lisp
@@ -2824,7 +2833,7 @@ else $as_nop
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in /Applications/Emacs.app/Contents/MacOS/bin$PATH_SEPARATOR$PATH
+for as_dir in /Applications/MacPorts/Emacs.app/Contents/MacOS/bin$PATH_SEPARATOR$PATH
 do
   IFS=$as_save_IFS
   case $as_dir in #(((
@@ -2856,8 +2865,11 @@ fi
 
 
 
-# Extract the first word of "find", so it can be a program name with args.
-set dummy find; ac_word=$2
+
+for ac_prog in gfind find
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_FIND_CMD+y}
@@ -2901,53 +2913,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "getconf", so it can be a program name with args.
-set dummy getconf; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_GETCONF_CMD+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  case $GETCONF_CMD in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_GETCONF_CMD="$GETCONF_CMD" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_GETCONF_CMD="$as_dir$ac_word$ac_exec_ext"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
+  test -n "$FIND_CMD" && break
 done
-  done
-IFS=$as_save_IFS
 
-  ;;
-esac
-fi
-GETCONF_CMD=$ac_cv_path_GETCONF_CMD
-if test -n "$GETCONF_CMD"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $GETCONF_CMD" >&5
-printf "%s\n" "$GETCONF_CMD" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-# Extract the first word of "head", so it can be a program name with args.
-set dummy head; ac_word=$2
+for ac_prog in ghead head
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_HEAD_CMD+y}
@@ -2991,8 +2963,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "id", so it can be a program name with args.
-set dummy id; ac_word=$2
+  test -n "$HEAD_CMD" && break
+done
+
+for ac_prog in gid id
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_ID_CMD+y}
@@ -3036,8 +3013,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "kill", so it can be a program name with args.
-set dummy kill; ac_word=$2
+  test -n "$ID_CMD" && break
+done
+
+for ac_prog in gkill kill
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_KILL_CMD+y}
@@ -3081,8 +3063,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "mkdir", so it can be a program name with args.
-set dummy mkdir; ac_word=$2
+  test -n "$KILL_CMD" && break
+done
+
+for ac_prog in gmkdir mkdir
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_MKDIR_CMD+y}
@@ -3126,8 +3113,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "mktemp", so it can be a program name with args.
-set dummy mktemp; ac_word=$2
+  test -n "$MKDIR_CMD" && break
+done
+
+for ac_prog in gmktemp mktemp
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_MKTEMP_CMD+y}
@@ -3169,6 +3161,10 @@ else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 fi
+
+
+  test -n "$MKTEMP_CMD" && break
+done
 
 
 # Extract the first word of "osascript", so it can be a program name with args.
@@ -3306,8 +3302,11 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "readlink", so it can be a program name with args.
-set dummy readlink; ac_word=$2
+
+for ac_prog in greadlink readlink
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_READLINK_CMD+y}
@@ -3351,8 +3350,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "rm", so it can be a program name with args.
-set dummy rm; ac_word=$2
+  test -n "$READLINK_CMD" && break
+done
+
+for ac_prog in grm rm
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_RM_CMD+y}
@@ -3396,54 +3400,7 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-for ac_prog in script
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_SCRIPT_CMD+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  case $SCRIPT_CMD in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_SCRIPT_CMD="$SCRIPT_CMD" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_SCRIPT_CMD="$as_dir$ac_word$ac_exec_ext"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-SCRIPT_CMD=$ac_cv_path_SCRIPT_CMD
-if test -n "$SCRIPT_CMD"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $SCRIPT_CMD" >&5
-printf "%s\n" "$SCRIPT_CMD" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-  test -n "$SCRIPT_CMD" && break
+  test -n "$RM_CMD" && break
 done
 
 for ac_prog in gsleep sleep
@@ -3496,8 +3453,10 @@ fi
   test -n "$SLEEP_CMD" && break
 done
 
-# Extract the first word of "sort", so it can be a program name with args.
-set dummy sort; ac_word=$2
+for ac_prog in gsort sort
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_SORT_CMD+y}
@@ -3541,8 +3500,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "stat", so it can be a program name with args.
-set dummy stat; ac_word=$2
+  test -n "$SORT_CMD" && break
+done
+
+for ac_prog in gstat stat
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_STAT_CMD+y}
@@ -3586,8 +3550,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "touch", so it can be a program name with args.
-set dummy touch; ac_word=$2
+  test -n "$STAT_CMD" && break
+done
+
+for ac_prog in gtouch touch
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_TOUCH_CMD+y}
@@ -3631,8 +3600,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "tty", so it can be a program name with args.
-set dummy tty; ac_word=$2
+  test -n "$TOUCH_CMD" && break
+done
+
+for ac_prog in gtty tty
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_TTY_CMD+y}
@@ -3676,8 +3650,13 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-# Extract the first word of "uname", so it can be a program name with args.
-set dummy uname; ac_word=$2
+  test -n "$TTY_CMD" && break
+done
+
+for ac_prog in guname uname
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_path_UNAME_CMD+y}
@@ -3719,6 +3698,10 @@ else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 fi
+
+
+  test -n "$UNAME_CMD" && break
+done
 
 
 # Extract the first word of "wmctrl", so it can be a program name with args.
