@@ -222,13 +222,13 @@ is-current-emacs ()
 is-running-emacs ()
 {
     $PKILL_CMD -0 -u "$user_id" -f                                       \
-               "${_EMACS_CMD##*/}.*daemon=.*${server_name}[[:>:]]?" >/dev/null 2>&1
+               "${_EMACS_CMD##*/}.*daemon=.*${server_name}\\b" >/dev/null 2>&1
 }
 
 is-running-emacsclient ()
 {
     $PKILL_CMD -0 -u "$user_id" -f                                       \
-               "${_EMACSCLIENT_CMD##*/}.*${server_name}[[:>:]]?" >/dev/null 2>&1
+               "${_EMACSCLIENT_CMD##*/}.*${server_name}\\b" >/dev/null 2>&1
 }
 
 create-frame-or-tty ()
@@ -1024,7 +1024,6 @@ if test ."$0" = ."${BASH_SOURCE[0]}"; then
     # Initialize options
     declare -a argv=()
     declare -a argx=()
-    declare -i user_id=$($ID_CMD -u)
     declare allow_server_start=true
     declare argc=0
     declare background_op='&'
@@ -1038,6 +1037,7 @@ if test ."$0" = ."${BASH_SOURCE[0]}"; then
     declare super_user_prefix=''
     declare tty_name=$($TTY_CMD)
     declare user_name=$($ID_CMD -un)
+    declare -i user_id=$($ID_CMD -u)
 
     # If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
     declare emacs_verify_kill=false
@@ -1237,6 +1237,6 @@ To start the server in Emacs, type "M-x server-start".'
         echo "Stopping Server..." >&3
         $SLEEP_CMD $emacs_kill_timeout
         $PKILL_CMD -9 -u "$user_id" -f                                   \
-                   "${_EMACS_CMD##*/}.*daemon=${server_name}[[:>:]]"
+                   "${_EMACS_CMD##*/}.*daemon=${server_name}\\b"
     fi
 fi
