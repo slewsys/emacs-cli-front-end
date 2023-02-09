@@ -38,6 +38,9 @@ AC_PATH_PROG([EMACSCLIENT_CMD], [emacsclient], [],
 
 
 AC_PATH_PROGS([FIND_CMD], [gfind find])
+
+AC_PATH_PROG([GETCONF_CMD], [getconf])
+
 AC_PATH_PROGS([HEAD_CMD], [ghead head])
 AC_PATH_PROGS([ID_CMD], [gid id])
 AC_PATH_PROGS([KILL_CMD], [gkill kill])

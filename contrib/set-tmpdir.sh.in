@@ -17,15 +17,15 @@
 #   sume () { sudo -i -u "${1:-root}" /usr/bin/env bash; }
 #
 #
-: ${GETCONF:='@GETCONF_CMD@'}
-: ${UNAME:='@UNAME_CMD@'}
+: ${GETCONF_CMD:='@GETCONF_CMD@'}
+: ${UNAME_CMD:='@UNAME_CMD@'}
 
 set-tmpdir ()
 {
     if test ."$TMPDIR" = .''; then
-        case "$($UNAME)" in
+        case "$($UNAME_CMD)" in
             Darwin)
-                export TMPDIR=$($GETCONF DARWIN_USER_TEMP_DIR)
+                export TMPDIR=$($GETCONF_CMD DARWIN_USER_TEMP_DIR)
                 ;;
         esac
     fi
