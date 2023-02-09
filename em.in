@@ -1237,6 +1237,6 @@ To start the server in Emacs, type "M-x server-start".'
         echo "Stopping Server..." >&3
         $SLEEP_CMD $emacs_kill_timeout
         $PKILL_CMD -9 -u "$user_id" -f                                   \
-                   "${_EMACS_CMD##*/}.*daemon=${server_name}\\b"
+                   "${_EMACS_CMD##*/}.*daemon=.*${server_name}\\b"
     fi
 fi
