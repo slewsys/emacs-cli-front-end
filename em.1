@@ -99,7 +99,7 @@ Don't display messages on success.
 .TP
 .B \-u, \-\-suppress-output
 Don't display return values from the server. Note that the long option is overshadowed by option
-.IR \-\-super-user .
+.IR \-\-sudo .
 .TP
 .B \-d, \-\-display=DISPLAY
 Tell the server to display the files on the given display.
@@ -270,18 +270,22 @@ Lisp debugger during the processing of the user init file
 .BR ~/.emacs .
 This is useful for debugging problems in the init file.
 .TP
-.BI \-\-user " user"
+.BI \-u " user\fR,\fP " \-\-user\fR=\fI user
 Load
 .IR user 's
 init file.
 .TP
-.BI \-t " file\fR,\fP " \-\-terminal " file"
+.B \-\-init\-directory\fR=\fIdirectory
+Start \fIEmacs\fR with user-emacs-directory set to
+.IR directory .
+.TP
+.BI \-t " file\fR,\fP " \-\-terminal\fR=\fIfile
 Use specified
 .I file
 as the terminal instead of using stdin/stdout.
 This must be the first argument specified in the command line.
 .TP
-.BI \-\-daemon "\fR[=\fPname\fR]"
+.BI \-\-daemon "\fR[=\fPname\fR], " \-\-bg\-daemon "\fR[=\fPname\fR]"
 Start
 .I Emacs
 as a daemon, enabling the
@@ -292,21 +296,26 @@ from the terminal.  You can then use the emacsclient (see
 command to
 connect to the server (with optional
 .IR name ")."
+.TP
+.BI \-\-fg\-daemon "\fR[=\fPname\fR]"
+Like
+.IR \-\-bg\-daemon ,
+but don't disconnect from the terminal.
 .RE
 .PP
 The following options are Lisp-oriented
 (these options are processed in the order encountered):
 .RS
 .TP 8
-.BI \-f " function\fR,\fP " \-\-funcall " function"
+.BI \-f " function\fR,\fP " \-\-funcall "\fR=\fPfunction"
 Execute the lisp function
 .IR function .
 .TP
-.BI \-l " file\fR,\fP " \-\-load " file"
+.BI \-l " file\fR,\fP " \-\-load "\fR=\fPfile"
 Load the lisp code in the file
 .IR file .
 .TP
-.BI \-\-eval " expr\fR,\fP " \-\-execute " expr"
+.BI \-\-eval "\fR=\fPexpr\fR,\fP " \-\-execute "\fR=\fPexpr"
 Evaluate the Lisp expression
 .IR expr .
 .RE
@@ -319,15 +328,15 @@ as a batch editor:
 .B \-\-batch
 Edit in batch mode.
 The editor will send messages to stderr.
-You must use \-l and \-f options to specify files to execute
+You must use \fB\-l\fP and \fB\-f\fP options to specify files to execute
 and functions to call.
 .TP
-.BI \-\-script " file"
+.BI \-\-script "\fR=\fPfile"
 Run
 .I file
 as an Emacs Lisp script.
 .TP
-.BI \-\-insert " file"
+.BI \-\-insert "\fR=\fPfile"
 Insert contents of
 .I file
 into the current buffer.
@@ -337,7 +346,7 @@ Exit
 .I Emacs
 while in batch mode.
 .TP
-.BI \-L " dir\fR,\fP " \-\-directory " dir"
+.BI \-L " dir\fR,\fP " \-\-directory "\fR=\fPdir"
 Add
 .I dir
 to the list of directories

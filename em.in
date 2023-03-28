@@ -16,24 +16,26 @@
 # In addition to command-line options from emacs(1) and emacsclient(1),
 # the following options are recognized:
 #
-#   --buffer[=BUF]           Visit buffer BUF if given, otherwise `*scratch*'.
-#   --dired[=DIR]            Visit directory DIR if given, otherwise `.'.
-#   --markdown, -md=FILE     Visit FILE in mode \`markdown-live-preview-mode'.
-#   --new-frame              Visit FILEs in a new frame.
-#   --preload-files          Load FILEs in parallel, but visit one at a time.
+#   --buffer [BUF]           Visit buffer BUF if given, otherwise `*scratch*'.
+#   --dired [DIR]            Visit directory DIR if given, otherwise `.'.
 #   --many-frames            Visit FILEs in parallel, each in its own frame.
-#   --save-kill              Save buffers and kill Emacs and Emacs server.
-#   --ssh=[USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
+#   --markdown, -md FILE     Visit FILE in mode \`markdown-live-preview-mode'.
+#   --new-frame, -new        Visit FILEs in a new frame.
+#   --preload-files, -pr     Load FILEs in parallel, but visit one at a time.
+#   --save-kill, -sa         Save buffers and kill Emacs and Emacs server.
+#   --ssh [USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
 #                            given, visit USER's home directory on HOST.
-#   --ssu=[USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
+#   --ssu [USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
 #                            If PATH not given, visit USER's home directory
 #                            on HOST.
-#   --super-user             Visit FILEs with `root' privileges via tramp.
+#   --sudo [USER]            If USER is specified, visit files as USER
+#                            via tramp. Otherwise, visit files as \`root'.
 #   --trace                  Trace execution of $pgm(1) script.
-#   --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
+#   --two-way-merge, -tw FILE1,FILE2[,OUTPUT-FILE]
 #                            Call \`emerge-files' with arguments FILE1 and
 #                            FILE2.  Save output to OUTPUT-FILE if given.
 #   --update-loaddefs[=DIR]  Build DIR-loaddefs.el.
+#   --view, -vi FILE        Open FILE in read-only mode.
 #   --wait                   Run emacsclient in foreground.
 #
 # Options may be abbreviated (e.g., `-new' instead of `--new-frame')
@@ -92,24 +94,25 @@ s;\(SERVER\).*\(Set\);\1    \2;
 
 Extended options:
 
---buffer[=BUF]           Visit buffer BUF if given, otherwise \`*scratch*'.
---dired[=DIR]            Visit directory DIR if given, otherwise \`.'.
+--buffer [BUF]           Visit buffer BUF if given, otherwise \`*scratch*'.
+--dired [DIR]            Visit directory DIR if given, otherwise \`.'.
 --many-frames            Visit FILEs in parallel, each in its own frame.
---markdown, -md=FILE     Visit FILE in mode \`markdown-live-preview-mode'.
+--markdown, -md FILE     Visit FILE in mode \`markdown-live-preview-mode'.
 --new-frame              Visit FILEs in a new frame.
 --preload-files          Load FILEs in parallel, but visit one at a time.
---save-kill              Save buffers and kill Emacs and Emacs server.
---ssh=[USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
+--save-kill, -sa         Save buffers and kill Emacs and Emacs server.
+--ssh [USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
                          given, visit USER's home directory on HOST.
---ssu=[USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
+--ssu [USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
                          If PATH not given, visit USER's home directory.
---super-user[=USER]      If USER is specified, visit files as USER
+--sudo [USER]            If USER is specified, visit files as USER
                          via tramp. Otherwise, visit files as \`root'.
 --trace                  Trace execution of $script_name(1) script.
---two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
+--two-way-merge, -tw FILE1,FILE2[,OUTPUT-FILE]
                          Call \`emerge-files' with arguments FILE1 and FILE2.
                          Save output to OUTPUT-FILE if given.
---update-loaddefs[=DIR]  Build DIR-loaddefs.el from DIR/*.el.
+--update-loaddefs [DIR]  Build DIR-loaddefs.el from DIR/*.el.
+--view, -vi FILE         Visit FILE in read-only mode.
 --wait                   Run emacsclient in foreground.
 
 In addition to the above, the following Emacs-specific options are
@@ -587,23 +590,23 @@ parse-options ()
                 ;;
 
 
-            # Extension option `--super-user'; with super-user
+            # Extension option `--sudo'; with super-user
             # privileges via tramp.
-            --su*|-su*)
+            --sud*|-sud*)
 
-                # USER given as --su=USER
+                # USER given as --sudo=USER
                 if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
-                    super_user=${BASH_REMATCH[1]}
+                    sudo_user=${BASH_REMATCH[1]}
                 else
-                    super_user='root'
+                    sudo_user='root'
                 fi
-                super_user_prefix="/sudo:${super_user}@localhost:"
+                sudo_user_prefix="/sudo:${sudo_user}@localhost:"
                 OPTIND+=1
                 shift
                 ;;
 
             # Extension option `--trace'.
-            --tr*|-tr*)
+            --trac*|-trac*)
                 OPTIND+=1
                 shift
 
@@ -621,7 +624,7 @@ parse-options ()
 
             # Extension option `--two-way-merge=FILE1,FILE1[,OUTPUT-FILE]':
             # open FILEs via Emacs function `emerge-files'.
-            --tw*|-tw|--2*|-2*)
+            --tw*|-tw*)
                 argv[argc++]='--eval'
 
                 # FILEs given as --two-way-merge=FILE1,FILE2[,OUTPUT-FILE]
@@ -736,6 +739,25 @@ parse-options ()
                 _EMACSCLIENT_CMD=$_EMACS_CMD
                 ;;
 
+            # Extension option `--view'.
+            --vie*|-vi*)
+                argv[argc++]='--eval'
+                argv[argc]='(view-file "'
+
+                if [[ ."$1" =~ ^\.[^=]+=(.*) ]]; then
+                    argv[argc]+=${BASH_REMATCH[1]//\"/}
+                    OPTIND+=1
+                    shift
+
+                # OPTARG given as second, possibly null, argument.
+                else
+                    argv[argc]+=$2
+                    OPTIND+=$(( $# == 1 ? 1 : 2 ))
+                    shift $(( $# == 1 ? 1 : 2 ))
+                fi
+                argv[argc++]+='")'
+                ;;
+
             # Extension option `--wait'
             --wa*|-w*)
                 background_op=''
@@ -745,16 +767,17 @@ parse-options ()
 
             # Short version of Emacsclient option `--suppress-output',  `-u',
             # shadows short version of Emacs option `--user' option.
-            # Note that long emacsclient option `--suppress-output' is
-            # itself shadowed by extension option `--super-user'.
             -u|-supp*|--supp*)
                 argv[argc++]=$1
                 OPTIND+=1
                 shift
                 ;;
 
-            # Emacs option `-f' shadows emacsclient variation of
-            # `--server-file' option.
+            # Short version of Emacs option `--funcall', `-f', shadows
+            # short version of Emacsclient option `--server-file'.
+            #
+            # Short version of Emacsclient option `--tramp', `-T',
+            # shadows short version of Emacs option `--title'.
             --bac*|-bac*|-bg|--bg-*|-bg-*|                                    \
                 --bo*|-bo*|-bd|-bw|                                           \
                 --ch*|-ch*|--co*|-co*|--cu*|-cu*|-cr|                         \
@@ -765,7 +788,7 @@ parse-options ()
                 -L|--l[oi]*|-l[oi]*|-lsp|-l|                                  \
                 --mou*|-mou*|-ms|--na*|-na*|                                  \
                 --pa*|-pa*|--sc*|-sc*|--se*|-se*|                             \
-                --t[ei]*|-t[ei]*|-T|-t|                                       \
+                --t[ei]*|-t[ei]*|-t|                                          \
                 --u*|-us*|--vi*|-vi*|--xr*|-xr*)
 
                 # OPTARG given as --opt=OPTARG.
@@ -787,8 +810,13 @@ parse-options ()
                 _EMACSCLIENT_CMD=$_EMACS_CMD
                 ;;
 
-            # emacslcient options `-s' and `--socket-name'.
-            --so*|-so*|-s)
+            # emacslcient options `-s', `--socket-name',
+            # `-T', `--tramp'.
+            #
+            # As noted above, short version of Emacsclient option
+            # `--tramp', `-T', shadows by short version of Emacs
+            # option `--title'.
+            --so*|-so*|-s|--tr*|-T)
 
                 # OPTARG given as --opt=OPTARG.
                 if [[ ."$1" =~ \.([^=]*)=(.*) ]]; then
@@ -1033,8 +1061,8 @@ if test ."$0" = ."${BASH_SOURCE[0]}"; then
     declare frame_or_tty=--create-frame
     declare preload_files=false
     declare server_name=''
-    declare super_user=''
-    declare super_user_prefix=''
+    declare sudo_user=''
+    declare sudo_user_prefix=''
     declare tty_name=$($TTY_CMD)
     declare user_name=$($ID_CMD -un)
     declare -i user_id=$($ID_CMD -u)
@@ -1146,9 +1174,9 @@ To start the server in Emacs, type "M-x server-start".'
                     f=${BASH_REMATCH[1]}
                 fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
-                    argx[i++]="${super_user_prefix}$PWD/$f"
+                    argx[i++]="${sudo_user_prefix}$PWD/$f"
                 else
-                    argx[i++]="${super_user_prefix}$f"
+                    argx[i++]="${sudo_user_prefix}$f"
                 fi
             done
             eval '{
@@ -1172,9 +1200,9 @@ To start the server in Emacs, type "M-x server-start".'
                     f=${BASH_REMATCH[1]}
                 fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
-                    argx="${super_user_prefix}$PWD/$f"
+                    argx="${sudo_user_prefix}$PWD/$f"
                 else
-                    argx="${super_user_prefix}$f"
+                    argx="${sudo_user_prefix}$f"
                 fi
                 eval '{
                 "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                    \
@@ -1191,9 +1219,9 @@ To start the server in Emacs, type "M-x server-start".'
                     f=${BASH_REMATCH[1]}
                 fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
-                    argx="${super_user_prefix}$PWD/$f"
+                    argx="${sudo_user_prefix}$PWD/$f"
                 else
-                    argx="${super_user_prefix}$f"
+                    argx="${sudo_user_prefix}$f"
                 fi
                 eval '{
                 "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                    \
