@@ -40,7 +40,7 @@ Connection refused
 
    This can be caused by the environment variable `TMPDIR` not being
    defined. In particular, `TMPDIR` must be set prior to running
-   **Emacs** in daemon mode. See the file _./contrib/set-tmpdir.sh_ for a
+   **Emacs** in daemon mode. See the file _./contrib/set-tmpdir_ for a
    solution.
 
 ## Q: `Waiting for Emacs...` and then nothing happens?

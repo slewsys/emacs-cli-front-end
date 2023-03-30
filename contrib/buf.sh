@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-: ${EM:='em'}
+: ${EM_CMD:='em'}
 
 # buf: Open Emacs buffers.
 buf ()
@@ -9,18 +9,18 @@ buf ()
     declare -a bufs=()
 
     for arg; do
-        if [[ "$arg" =~ ^-.* ]]; then
+        if [[ ."$arg" =~ ^\.-.* ]]; then
             args+=( "$arg" )
         else
-            bufs+=( "$(printf '%q' "$arg")" )
+            bufs+=( "$arg" )
         fi
     done
 
     if (( ${#bufs[*]} == 0 )); then
-        $EM "${args[@]}"
+        $EM_CMD "${args[@]}"
     else
         for b in "${bufs[@]}"; do
-            eval $EM "${args[@]}" --buf "$b"
+            $EM_CMD "${args[@]}" --buf "$b"
         done
     fi
 }

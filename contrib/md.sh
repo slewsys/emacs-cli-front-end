@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-: ${EM:='em'}
+: ${EM_CMD:='em'}
 
 # md: Open named markdown documents with Emacs.
 md ()
@@ -10,14 +10,13 @@ md ()
 
     for arg; do
         if test -f "$arg"; then
-            files+=( "$(printf '%q' "$arg")" )
+            files+=( "$arg" )
         else
             args+=( "$arg" )
         fi
     done
 
     for f in "${files[@]}"; do
-        eval $EM "${args[@]}" --markdown "$f"
+        $EM_CMD "${args[@]}" --markdown "$f"
     done
-
 }

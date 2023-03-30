@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-: ${EM:='em'}
+: ${EM_CMD:='em'}
 
 # emerge: Open files with Emacs function `emerge-fles'.
 emerge ()
@@ -11,7 +11,7 @@ emerge ()
 
     for arg; do
         if test -f "$arg"; then
-            file+=( "$(printf '%q' "$arg")" )
+            file+=( "$arg" )
         else
             args+=( "$arg" )
         fi
@@ -23,11 +23,11 @@ emerge ()
             return 1
             ;;
         2)
-            eval $EM "${args[@]}" \
+            $EM_CMD "${args[@]}" \
                  --two-way-merge="${file[0]}","${file[1]}"
             ;;
         3)
-            eval $EM "${args[@]}" \
+            $EM_CMD "${args[@]}" \
                  --two-way-merge="${file[0]}","${file[1]}","${file[2]}"
             ;;
         *)

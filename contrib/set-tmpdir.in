@@ -7,24 +7,15 @@
 # TMPDIR must be set prior to running emacs(1) in daemon mode.
 # To set TMPDIR, source the contents of this file:
 #
-#   source /path/to/set-tmpdir.sh
-#
-# To automate this, add the contents of this file to every user's
-# shell init script - e.g., ~/.bashrc. Then run su(1) or sudo(1) so
-# that the target user's login is set. For example, for bash(1) and
-# sudo(1), you could do this via a shell function, sume:
-#
-#   sume () { sudo -i -u "${1:-root}" /usr/bin/env bash; }
-#
+#   source /path/to/set-tmpdir
 #
 : ${GETCONF_CMD:='@GETCONF_CMD@'}
-: ${UNAME_CMD:='@UNAME_CMD@'}
 
 set-tmpdir ()
 {
     if test ."$TMPDIR" = .''; then
-        case "$($UNAME_CMD)" in
-            Darwin)
+        case "$OSTYPE" in
+            darwin*)
                 export TMPDIR=$($GETCONF_CMD DARWIN_USER_TEMP_DIR)
                 ;;
         esac
