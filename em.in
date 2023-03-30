@@ -145,7 +145,6 @@ i
 ,p
 Q
 EOF
-
 }
 
 # Check shell interpreter version.
@@ -236,14 +235,30 @@ is-current-emacs ()
 
 is-running-emacs ()
 {
-    $PKILL_CMD -0 -u "$user_id" -f                                       \
-               "${_EMACS_CMD##*/}.*daemon=.*${server_name}\\b" >/dev/null 2>&1
+    case "$OSTYPE" in
+        darwin*)
+            $PKILL_CMD -0 -u "$user_id" -f                                       \
+                       "${_EMACS_CMD##*/}.*daemon=.*${server_name} " >/dev/null 2>&1
+            ;;
+        *)
+            $PKILL_CMD -0 -u "$user_id" -f                                       \
+                       "${_EMACS_CMD##*/}.*daemon=.*${server_name}\\b" >/dev/null 2>&1
+            ;;
+    esac
 }
 
 is-running-emacsclient ()
 {
-    $PKILL_CMD -0 -u "$user_id" -f                                       \
-               "${_EMACSCLIENT_CMD##*/}.*${server_name}\\b" >/dev/null 2>&1
+    case "$OSTYPE" in
+        darwin*)
+            $PKILL_CMD -0 -u "$user_id" -f                                       \
+                       "${_EMACSCLIENT_CMD##*/}.*${server_name} " >/dev/null 2>&1
+            ;;
+        *)
+            $PKILL_CMD -0 -u "$user_id" -f                                       \
+                       "${_EMACSCLIENT_CMD##*/}.*${server_name}\\b" >/dev/null 2>&1
+            ;;
+    esac
 }
 
 create-frame-or-tty ()
@@ -1278,7 +1293,15 @@ To start the server in Emacs, type "M-x server-start".'
     if $emacs_verify_kill; then
         echo "Stopping Server..." >&3
         $SLEEP_CMD $emacs_kill_timeout
-        $PKILL_CMD -9 -u "$user_id" -f                                   \
-                   "${_EMACS_CMD##*/}.*daemon=.*${server_name}\\b"
+        case "$OSTYPE" in
+            darwin*)
+                $PKILL_CMD -9 -u "$user_id" -f                                   \
+                           "${_EMACS_CMD##*/}.*daemon=.*${server_name} "
+                ;;
+            *)
+                $PKILL_CMD -9 -u "$user_id" -f                                   \
+                           "${_EMACS_CMD##*/}.*daemon=.*${server_name}\\b"
+                ;;
+        esac
     fi
 fi
