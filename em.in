@@ -71,6 +71,7 @@ shopt -s extglob
 : ${PS_CMD:='@PS_CMD@'}
 : ${READLINK_CMD:='@READLINK_CMD@'}
 : ${RM_CMD:='@RM_CMD@'}
+: ${SED_CMD:='@SED_CMD@'}
 : ${SLEEP_CMD:='@SLEEP_CMD@'}
 : ${SORT_CMD:='@SORT_CMD@'}
 : ${STAT_CMD:='@STAT_CMD@'}
@@ -180,23 +181,34 @@ resolve-existing ()
     fi
 }
 
+verify-command-paths ()
+{
+    local -n list=$1
+
+    local -i status=0
+    local cmd
+
+    for cmd in "${list[@]}"; do
+        if eval test .\"\$$cmd\" = .''; then
+            echo "${BASH_SOURCE[0]}: $cmd: Undefined variable" >&2
+            (( ++status ))
+        elif eval test ! -x \"\$$cmd\"; then
+            eval echo "${BASH_SOURCE[0]}: \$$cmd: No such command" >&2
+            (( ++status ))
+        fi
+    done
+}
+
 # Check command paths.
 is-valid-environment ()
 {
     local -i status=0
-    local -a envlist=(
-        AWK_CMD BASENAME_CMD DIRNAME_CMD ED_CMD GREP_CMD _EMACS_CMD
-        _EMACSCLIENT_CMD FIND_CMD HEAD_CMD ID_CMD KILL_CMD MKDIR_CMD
-        MKTEMP_CMD PKILL_CMD PS_CMD READLINK_CMD RM_CMD SLEEP_CMD
-        SORT_CMD STAT_CMD TOUCH_CMD TTY_CMD UNAME_CMD
+    local -a command_variables=(
+        $($SED_CMD -nE -e '/^:\s\$\{([A-Z_][A-Z0-9_]*):.*/s//\1/p' "$0")
     )
 
-    for var in ${envlist[*]}; do
-        if ! command -v "${!var}" >/dev/null; then
-            echo "$script_name: $var: Cannot exec referenced command" >&2
-            status+=1
-        fi
-    done
+    verify-command-paths command_variables
+    unset -v command_variables
 
     return $status
 }
@@ -1043,7 +1055,9 @@ EOF
 }
 
 if test ."$0" = ."${BASH_SOURCE[0]}"; then
-    declare script_name=${0##*/}
+    declare script=$(resolve-existing "$0")
+    declare script_name=${script##*/}
+    declare script_dir=${script%/*}
     declare emacs_confdir=${HOME}/.emacs.d
 
     # Delay in seconds while buffer loads (system dependent).

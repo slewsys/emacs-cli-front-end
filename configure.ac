@@ -53,6 +53,7 @@ AC_PATH_PROG([PS_CMD], [ps])
 
 AC_PATH_PROGS([READLINK_CMD], [greadlink readlink])
 AC_PATH_PROGS([RM_CMD], [grm rm])
+AC_PATH_PROGS([SED_CMD], [gsed sed])
 AC_PATH_PROGS([SLEEP_CMD], [gsleep sleep])
 AC_PATH_PROGS([SORT_CMD], [gsort sort])
 AC_PATH_PROGS([STAT_CMD], [gstat stat])
@@ -62,10 +63,10 @@ AC_PATH_PROGS([UNAME_CMD], [guname uname])
 
 AC_PATH_PROG([WMCTRL_CMD], [wmctrl])
 
-AC_CONFIG_FILES([Makefile
- em
- contrib/emc
- contrib/emf
- contrib/set-tmpdir.sh
- ])
+AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([em], [chmod +x em])
+AC_CONFIG_FILES([contrib/emc], [chmod +x contrib/emc])
+AC_CONFIG_FILES([contrib/emf], [chmod +x contrib/emf])
+AC_CONFIG_FILES([contrib/set-tmpdir], [chmod +x contrib/set-tmpdir])
+
 AC_OUTPUT

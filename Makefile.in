@@ -102,7 +102,7 @@ DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
-CONFIG_CLEAN_FILES = em contrib/emc contrib/emf contrib/set-tmpdir.sh
+CONFIG_CLEAN_FILES = em contrib/emc contrib/emf contrib/set-tmpdir
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -158,8 +158,8 @@ MANS = $(man_MANS)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/em.in \
 	$(top_srcdir)/contrib/emc.in $(top_srcdir)/contrib/emf.in \
-	$(top_srcdir)/contrib/set-tmpdir.sh.in AUTHORS COPYING \
-	ChangeLog INSTALL NEWS README TODO depcomp install-sh missing
+	$(top_srcdir)/contrib/set-tmpdir.in AUTHORS COPYING ChangeLog \
+	INSTALL NEWS README TODO depcomp install-sh missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -232,6 +232,7 @@ PKILL_CMD = @PKILL_CMD@
 PS_CMD = @PS_CMD@
 READLINK_CMD = @READLINK_CMD@
 RM_CMD = @RM_CMD@
+SED_CMD = @SED_CMD@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 SLEEP_CMD = @SLEEP_CMD@
@@ -329,7 +330,7 @@ contrib/emc: $(top_builddir)/config.status $(top_srcdir)/contrib/emc.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 contrib/emf: $(top_builddir)/config.status $(top_srcdir)/contrib/emf.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
-contrib/set-tmpdir.sh: $(top_builddir)/config.status $(top_srcdir)/contrib/set-tmpdir.sh.in
+contrib/set-tmpdir: $(top_builddir)/config.status $(top_srcdir)/contrib/set-tmpdir.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
