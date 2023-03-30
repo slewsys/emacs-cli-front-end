@@ -383,6 +383,7 @@ parse-options ()
     local username=''
     local remotehost=''
     local pathname=''
+    local window_name=''
 
     # Aggregate options
     while true; do
@@ -428,6 +429,8 @@ parse-options ()
                 argv[argc]+='") "'
                 argv[argc]+=$(printf '%q' "${buffer:-'*scratch*'}")
                 argv[argc++]+='"))'
+
+                window_name=${buffer:-'scratch'}
                 ;;
 
             # Extension option `--dired [DIR]'; open DIR in dired mode.
@@ -451,6 +454,8 @@ parse-options ()
                 argv[argc]='(dired "'
                 argv[argc]+=$(printf '%q' "${directory:='.'}")
                 argv[argc++]+='")'
+
+                window_name=$directory
                 ;;
 
             # Extension option `--many-frames'; visit files in
@@ -501,6 +506,8 @@ parse-options ()
                 argv[argc]+='  (markdown-mode)) '
                 argv[argc]+='(markdown-live-preview-mode 1) '
                 argv[argc++]+='(delete-other-windows))'
+
+                window_name=$file
                 ;;
 
             # Extension option `--new-frame'; visit file in new frame.
@@ -569,6 +576,8 @@ parse-options ()
                     raise-exception "parse-options: Invalid SSH argument"
                 fi
                 argv[argc++]+='")'
+
+                window_name=$pathname
                 ;;
 
 
@@ -614,6 +623,8 @@ parse-options ()
                     raise-exception "parse-options: Invalid SSH argument"
                 fi
                 argv[argc++]+='")'
+
+                window_name=$pathname
                 ;;
 
 
@@ -723,6 +734,8 @@ parse-options ()
                 argv[argc]+="     'frame-size-ediff) "
                 argv[argc]+="(and (fboundp 'frame-size-default) "
                 argv[argc++]+="   'frame-size-default))"
+
+                window_name=merge
                 ;;
 
             # Extension option `--update-loaddefs [DIR]'
@@ -734,12 +747,16 @@ parse-options ()
                 # DIR given as --update-loaddefs=DIR
                 if [[ ."$1" =~ \.[^=]*=(.*) ]]; then
                     directory=${BASH_REMATCH[1]}
+                    directory=${directory#\"}
+                    directory=${directory%\"}
                     OPTIND+=1
                     shift
 
                 # DIR given as second, possibly null, argument.
                 else
                     directory=$2
+                    directory=${directory#\"}
+                    directory=${directory%\"}
                     OPTIND+=$(( $# == 1 ? 1 : 2 ))
                     shift $(( $# == 1 ? 1 : 2 ))
                 fi
@@ -772,17 +789,25 @@ parse-options ()
                 argv[argc]='(view-file "'
 
                 if [[ ."$1" =~ ^\.[^=]+=(.*) ]]; then
-                    argv[argc]+=${BASH_REMATCH[1]//\"/}
+                    file=${BASH_REMATCH[1]}
+                    file=${file#\"}
+                    file=${file%\"}
+                    argv[argc]+=$(printf '%q' "$file")
                     OPTIND+=1
                     shift
 
                 # OPTARG given as second, possibly null, argument.
                 else
-                    argv[argc]+=$2
+                    file=$2
+                    file=${file#\"}
+                    file=${file%\"}
+                    argv[argc]+=$(printf '%q' "$file")
                     OPTIND+=$(( $# == 1 ? 1 : 2 ))
                     shift $(( $# == 1 ? 1 : 2 ))
                 fi
                 argv[argc++]+='")'
+
+                window_name=$file
                 ;;
 
             # Extension option `--wait'
@@ -1192,20 +1217,21 @@ To start the server in Emacs, type "M-x server-start".'
         start-emacs-server
     fi
 
+    declare f=''
+
     # Sequentially open files...
     if ! $preload_files; then
 
         if test -n "$(echo ${argv[@]})" -o -n "$(echo $@)"; then
-            i=0
             for f in "$@"; do
                 if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
                     argv+=( "+${BASH_REMATCH[2]}" )
                     f=${BASH_REMATCH[1]}
                 fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
-                    argx[i++]="${sudo_user_prefix}$PWD/$f"
+                    argx[i++]="${sudo_user_prefix}${PWD}/${f}"
                 else
-                    argx[i++]="${sudo_user_prefix}$f"
+                    argx[i++]="${sudo_user_prefix}${f}"
                 fi
             done
             eval '{
@@ -1213,7 +1239,9 @@ To start the server in Emacs, type "M-x server-start".'
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
             raise-exception sequence
-        }' $background_op
+            }' $background_op
+
+            window_name=$f
             $SLEEP_CMD $until_buffer_loads
         fi
 
@@ -1222,23 +1250,24 @@ To start the server in Emacs, type "M-x server-start".'
 
         # each in new frame
         if $create_many_new_frames; then
-            i=0
             for f in "$@"; do
                 if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
                     argv+=( "+${BASH_REMATCH[2]}" )
                     f=${BASH_REMATCH[1]}
                 fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
-                    argx="${sudo_user_prefix}$PWD/$f"
+                    argx="${sudo_user_prefix}${PWD}/${f}"
                 else
-                    argx="${sudo_user_prefix}$f"
+                    argx="${sudo_user_prefix}${f}"
                 fi
                 eval '{
                 "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                    \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
                 raise-exception many frames
-            }' $background_op
+                }' $background_op
+
+                window_name=$f
                 $SLEEP_CMD $until_buffer_loads
             done
         else
@@ -1248,16 +1277,18 @@ To start the server in Emacs, type "M-x server-start".'
                     f=${BASH_REMATCH[1]}
                 fi
                 if [[ ! ."$f" =~ ^\./ ]]; then
-                    argx="${sudo_user_prefix}$PWD/$f"
+                    argx="${sudo_user_prefix}${PWD}/${f}"
                 else
-                    argx="${sudo_user_prefix}$f"
+                    argx="${sudo_user_prefix}${f}"
                 fi
                 eval '{
                 "$_EMACSCLIENT_CMD" $(create-frame-or-tty)                    \
                             ${argv[0]:+"${argv[@]}"}                          \
                             ${argx[0]:+"${argx[@]}"} ||
                 raise-exception preload
-            }' $background_op
+                }' $background_op
+
+                window_name=$f
                 $SLEEP_CMD $until_buffer_loads
                 create_new_frames='false'
             done
@@ -1275,10 +1306,10 @@ To start the server in Emacs, type "M-x server-start".'
 
     if test ."$background_op" != .''; then
         if test -x "$WMCTRL_CMD"; then
-            if $WMCTRL_CMD -l | $GREP_CMD -q 'emacs@'; then
-                $WMCTRL_CMD -a 'emacs@'
+            if $WMCTRL_CMD -l | $GREP_CMD -q 'GNU Emacs'; then
+                $WMCTRL_CMD -a 'GNU Emacs'
             else
-                eval $WMCTRL_CMD ${1:+"-a ${1##*/}"}
+                eval $WMCTRL_CMD ${window_name:+"-a ${window_name##*/}"}
             fi
         elif test -x "$OSASCRIPT_CMD"; then
             emacs_frontmost='tell application "System Events" '
