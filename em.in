@@ -2,7 +2,7 @@
 #
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2023 Andrew L. Moore
+# Copyright © 2017-2024 Andrew L. Moore
 #
 # This script runs emacs(1) and/or emacsclient(1) as appropriate per
 # given command-line arguments. For interactive sessions, emacs(1) is
@@ -18,6 +18,7 @@
 #
 #   --buffer [BUF]           Visit buffer BUF if given, otherwise `*scratch*'.
 #   --dired [DIR]            Visit directory DIR if given, otherwise `.'.
+#   --info                   Display emacs configuration, then exit.
 #   --many-frames            Visit FILEs in parallel, each in its own frame.
 #   --markdown, -md FILE     Visit FILE in mode \`markdown-live-preview-mode'.
 #   --new-frame, -new        Visit FILEs in a new frame.
@@ -61,6 +62,7 @@ shopt -s extglob
 : ${_EMACS_CMD:='@EMACS_CMD@'}
 : ${_EMACSCLIENT_CMD:='@EMACSCLIENT_CMD@'}
 : ${FIND_CMD:='@FIND_CMD@'}
+: ${FMT_CMD:='@FMT_CMD@'}
 : ${HEAD_CMD:='@HEAD_CMD@'}
 : ${ID_CMD:='@ID_CMD@'}
 : ${KILL_CMD:='@KILL_CMD@'}
@@ -315,7 +317,7 @@ start-emacs-server ()
     local server_socket_dir
 
     server_socket_dir=$(
-        $_EMACS_CMD --batch -q  \
+        $_EMACS_CMD -q -nw --batch  \
                   --eval "(progn (server-start) (prin1 server-socket-dir))"
                           )
     if test ."$server_socket_dir" = .''; then
@@ -456,6 +458,22 @@ parse-options ()
                 argv[argc++]+='")'
 
                 window_name=$directory
+                ;;
+
+            # Extension option `--info'
+            --inf*)
+                EMACS_DEV=$($_EMACS_CMD --version | $SED_CMD -ne '/^Dev/p') \
+                         $_EMACS_CMD -q -nw --batch \
+                         --eval '(let ((dev-branch (getenv "EMACS_DEV")))
+                                   (princ (concat "GNU Emacs v" emacs-version
+                                                  "\n \b" dev-branch
+                                                  "\nconfigure options:\n\t"
+                                                  system-configuration-options
+                                                  "\nfeatures:\n\t"
+                                                  system-configuration-features
+                                                  "\n")))' |
+                    $FMT_CMD -w 76
+                exit 0
                 ;;
 
             # Extension option `--many-frames'; visit files in
