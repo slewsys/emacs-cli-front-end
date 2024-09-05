@@ -372,7 +372,7 @@ tty-owner-id ()
 }
 
 # Parse command-line options for requests.
-parse-options ()
+parse-command-line ()
 {
     local buffer=''
     local directory=''
@@ -591,7 +591,7 @@ parse-options ()
                     OPTIND+=2
                     shift 2
                 else
-                    raise-exception "parse-options: Invalid SSH argument"
+                    raise-exception "${FUNCNAME[0]}: Invalid SSH argument"
                 fi
                 argv[argc++]+='")'
 
@@ -638,7 +638,7 @@ parse-options ()
                     OPTIND+=2
                     shift 2
                 else
-                    raise-exception "parse-options: Invalid SSH argument"
+                    raise-exception "${FUNCNAME[0]}: Invalid SSH argument"
                 fi
                 argv[argc++]+='")'
 
@@ -1209,7 +1209,7 @@ To start the server in Emacs, type "M-x server-start".'
 
     # Only help or version requested.
     OPTIND=1
-    if ! parse-options "$@"; then
+    if ! parse-command-line "$@"; then
         exit 0
     fi
 
