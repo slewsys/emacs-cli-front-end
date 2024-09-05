@@ -1153,8 +1153,18 @@ To start the server in Emacs, type "M-x server-start".'
         set -- --buffer='*scratch*'
     fi
 
+    if test ."$server_name" = .'' -a \
+              ."$SUDO_USER" != .'' -a \
+              ."$SUDO_USER" != "$USER"; then
+
+        #
+        configure-for-console
+        if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
+            set -- --socket-name="$server_name" "$@"
+        fi
+
     # SSH session.
-    if test ."$SSH_TTY" != .''; then
+    elif test ."$SSH_TTY" != .''; then
         declare -a endpoint=( $SSH_CONNECTION )
 
         # Client and server IPs differ...
@@ -1172,15 +1182,6 @@ To start the server in Emacs, type "M-x server-start".'
         # after exit, so just call Emacs directly.
         _EMACSCLIENT_CMD=$_EMACS_CMD
         configure-for-console
-    elif test ."$server_name" = .'' -a \
-              ."$SUDO_USER" != .'' -a \
-              ."$SUDO_USER" != "$USER"; then
-
-        #
-        configure-for-console
-        if test ."$_EMACSCLIENT_CMD" != ."$_EMACS_CMD"; then
-            set -- --socket-name="$server_name" "$@"
-        fi
     fi
 
     # On non-Apple/Microsoft systems, if Wayland and/or X11 display
