@@ -1113,9 +1113,14 @@ EOF
 }
 
 if test ."$0" = ."${BASH_SOURCE[0]}"; then
-    declare script=$(resolve-existing "$0")
-    declare script_name=${script##*/}
-    declare script_dir=${script%/*}
+    declare script=''
+    declare script_name=''
+    declare script_dir=''
+
+    script=$(resolve-existing "$0") || exit $?
+    script_name=${script##*/}
+    script_dir=${script%/*}
+
     declare emacs_confdir=${HOME}/.emacs.d
 
     # Delay in seconds while buffer loads (system dependent).
@@ -1138,6 +1143,14 @@ if test ."$0" = ."${BASH_SOURCE[0]}"; then
     declare tty_name=$($TTY_CMD)
     declare user_name=$($ID_CMD -un)
     declare -i user_id=$($ID_CMD -u)
+
+    user_id=$($ID_CMD -u) || exit $?
+    user_name=$($ID_CMD -un) || exit $?
+
+    # There won't be a tty if, e.g., invoked in a pipeline.
+    if ! tty_name=$($TTY_CMD); then
+        tty_name=/dev/null
+    fi
 
     # If evaling `(save-buffers-kill-emacs)' times out, then send SIGKILL.
     declare emacs_verify_kill=false
@@ -1176,7 +1189,8 @@ To start the server in Emacs, type "M-x server-start".'
         fi
     fi
 
-    if (( $(tty-owner-id) != user_id )); then
+    if test ."$tty_name" != .'/dev/null' \
+            && (( $(tty-owner-id) != user_id )); then
 
         # Could exec `script', but Emacs daemon wouldn't be accessible
         # after exit, so just call Emacs directly.
