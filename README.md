@@ -20,10 +20,10 @@ the following options are recognized:
   -----------------------     |------------
   --buffer[=BUF]              | Visit buffer _BUF_ if given, otherwise `*scratch*`.
   --dired[=DIR]               | Visit directory _DIR_ if given, otherwise `.`.
+  --many-frames               | Visit _FILEs_ in parallel, each in its own frame.
   --markdown, -md=FILE        | Visit _FILE_ in mode `markdown-live-preview-mode`.
   --new-frame                 | Visit FILEs in a new frame.
   --preload-files             | Load _FILEs_ in parallel, but visit one at a time.
-  --many-frames               | Visit _FILEs_ in parallel, each in its own frame.
   --save-kill                 | Save buffers and kill Emacs and Emacs server.
   --ssh=[USER@]HOST[:PATH]    | Visit _PATH_ on remote _HOST_ via SSH.
   --ssu=[USER@]HOST[:PATH]    | Visit _PATH_ with SUDO on remote _HOST_ via SSH.

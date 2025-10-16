@@ -2,7 +2,7 @@
 #
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2017-2024 Andrew L. Moore
+# Copyright © 2017-2025 Andrew L. Moore
 #
 # This script runs emacs(1) and/or emacsclient(1) as appropriate per
 # given command-line arguments. For interactive sessions, emacs(1) is
@@ -16,28 +16,30 @@
 # In addition to command-line options from emacs(1) and emacsclient(1),
 # the following options are recognized:
 #
-#   --buffer [BUF]           Visit buffer BUF if given, otherwise `*scratch*'.
-#   --dired [DIR]            Visit directory DIR if given, otherwise `.'.
-#   --info                   Display emacs configuration, then exit.
-#   --many-frames            Visit FILEs in parallel, each in its own frame.
-#   --markdown, -md FILE     Visit FILE in mode \`markdown-live-preview-mode'.
-#   --new-frame, -new        Visit FILEs in a new frame.
-#   --preload-files, -pr     Load FILEs in parallel, but visit one at a time.
-#   --save-kill, -sa         Save buffers and kill Emacs and Emacs server.
-#   --ssh [USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
-#                            given, visit USER's home directory on HOST.
-#   --ssu [USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
-#                            If PATH not given, visit USER's home directory
-#                            on HOST.
-#   --sudo [USER]            If USER is specified, visit files as USER
-#                            via tramp. Otherwise, visit files as \`root'.
-#   --trace                  Trace execution of $pgm(1) script.
-#   --two-way-merge, -tw FILE1,FILE2[,OUTPUT-FILE]
-#                            Call \`emerge-files' with arguments FILE1 and
-#                            FILE2.  Save output to OUTPUT-FILE if given.
-#   --update-loaddefs[=DIR]  Build DIR-loaddefs.el.
-#   --view, -vi FILE        Open FILE in read-only mode.
-#   --wait                   Run emacsclient in foreground.
+# --buffer [BUF]           Visit buffer BUF if given, otherwise `*scratch*'.
+# --dired [DIR]            Visit directory DIR if given, otherwise `.'.
+# --info                   Display emacs configuration, then exit.
+# --many-frames FILE ...   Visit FILEs in parallel, each in its own frame.
+# --markdown, -md FILE     Visit FILE in mode `markdown-live-preview-mode'.
+# --new-frame, -new FILE ...
+#                          Visit FILE(s) in a new frame.
+# --preload-files, -pr FILE ...
+#                          Load FILEs in parallel, but visit one at a time.
+# --save-kill, -sa         Save buffers and kill Emacs and server.
+# --ssh [USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
+#                          given, visit USER's home directory on HOST.
+# --ssu [USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
+#                          If PATH not given, visit USER's home directory
+#                          on HOST.
+# --sudo [USER] FILE ...   If USER is specified, visit files as USER via
+#                          tramp. Otherwise, visit files as `root'.
+# --trace                  Trace execution of $pgm(1) script.
+# --two-way-merge, -tw FILE1,FILE2[,OUTPUT-FILE]
+#                          Call `emerge-files' with arguments FILE1 and
+#                          FILE2.  Save output to OUTPUT-FILE if given.
+# --update-loaddefs[=DIR]  Build DIR-loaddefs.el.
+# --view, -vi FILE         Open FILE in read-only mode.
+# --wait                   Run emacsclient in foreground.
 #
 # Options may be abbreviated (e.g., `-new' instead of `--new-frame')
 # provided they are unambiguous.
@@ -84,11 +86,13 @@ shopt -s extglob
 
 usage ()
 {
-    $ED_CMD -v <<EOF
+    $ED_CMD -vs <<EOF
 a
 $($_EMACSCLIENT_CMD --help)
 .
 1s;Usage: [^ ]\{1,\};Usage: $script_name;
+/+LINE/s;\.$; or\\
+FILENAME:LINE[:COLUMN].;
 # Option \`-f' is shadowed by Emacs option \`--funcall'
 /-f SERVER, /s;;;
 .,+j
@@ -99,23 +103,27 @@ Extended options:
 
 --buffer [BUF]           Visit buffer BUF if given, otherwise \`*scratch*'.
 --dired [DIR]            Visit directory DIR if given, otherwise \`.'.
---many-frames            Visit FILEs in parallel, each in its own frame.
+--info                   Display emacs configuration, then exit.
+--many-frames FILE ...   Visit FILEs in parallel, each in its own frame.
 --markdown, -md FILE     Visit FILE in mode \`markdown-live-preview-mode'.
---new-frame              Visit FILEs in a new frame.
---preload-files          Load FILEs in parallel, but visit one at a time.
---save-kill, -sa         Save buffers and kill Emacs and Emacs server.
+--new-frame, -new FILE ...
+                         Visit FILE(s) in a new frame.
+--preload-files, -pr FILE ...
+                         Load FILEs in parallel, but visit one at a time.
+--save-kill, -sa         Save buffers and kill Emacs and server.
 --ssh [USER@]HOST[:PATH] Visit PATH on remote HOST via SSH. If PATH not
                          given, visit USER's home directory on HOST.
 --ssu [USER@]HOST[:PATH] Visit PATH with SUDO on remote HOST via SSH.
-                         If PATH not given, visit USER's home directory.
---sudo [USER]            If USER is specified, visit files as USER
-                         via tramp. Otherwise, visit files as \`root'.
---trace                  Trace execution of $script_name(1) script.
+                         If PATH not given, visit USER's home directory
+                         on HOST.
+--sudo [USER] FILE ...   If USER is specified, visit files as USER via
+                         tramp. Otherwise, visit files as \`root'.
+--trace                  Trace execution of $pgm(1) script.
 --two-way-merge, -tw FILE1,FILE2[,OUTPUT-FILE]
-                         Call \`emerge-files' with arguments FILE1 and FILE2.
-                         Save output to OUTPUT-FILE if given.
---update-loaddefs [DIR]  Build DIR-loaddefs.el from DIR/*.el.
---view, -vi FILE         Visit FILE in read-only mode.
+                         Call \`emerge-files' with arguments FILE1 and
+                         FILE2.  Save output to OUTPUT-FILE if given.
+--update-loaddefs[=DIR]  Build DIR-loaddefs.el.
+--view, -vi FILE         Open FILE in read-only mode.
 --wait                   Run emacsclient in foreground.
 
 In addition to the above, the following Emacs-specific options are
@@ -517,13 +525,15 @@ parse-command-line ()
 
                 # Open FILE, invoke `markdown-live-preview-mode'.
                 argv[argc]='(with-current-buffer '
-                argv[argc]+='(find-file "'
+                argv[argc]+='  (find-file "'
                 argv[argc]+=$(printf '%q' "${file:='*.md'}")
                 argv[argc]+='") '
-                argv[argc]+="(unless (eq major-mode 'markdown-mode)"
-                argv[argc]+='  (markdown-mode)) '
-                argv[argc]+='(markdown-live-preview-mode 1) '
-                argv[argc++]+='(delete-other-windows))'
+                argv[argc]+="  (unless (eq major-mode 'markdown-mode)"
+                argv[argc]+='    (markdown-mode)) '
+                argv[argc]+='  (markdown-export) '
+                argv[argc]+='  (eww-open-file "'
+                argv[argc]+=$(printf '%q' "${file%.*}.html")
+                argv[argc++]+='"))'
 
                 window_name=$file
                 ;;
@@ -1257,7 +1267,10 @@ To start the server in Emacs, type "M-x server-start".'
 
         if test -n "$(echo ${argv[@]})" -o -n "$(echo $@)"; then
             for f in "$@"; do
-                if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
+                if [[ ."$f" =~ ^\.(.*):([0-9]+:[0-9]+)$ ]]; then
+                    argv+=( "+${BASH_REMATCH[2]}" )
+                    f=${BASH_REMATCH[1]}
+                elif [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
                     argv+=( "+${BASH_REMATCH[2]}" )
                     f=${BASH_REMATCH[1]}
                 fi
@@ -1284,7 +1297,10 @@ To start the server in Emacs, type "M-x server-start".'
         # each in new frame
         if $create_many_new_frames; then
             for f in "$@"; do
-                if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
+                if [[ ."$f" =~ ^\.(.*):([0-9]+:[0-9]+)$ ]]; then
+                    argv+=( "+${BASH_REMATCH[2]}" )
+                    f=${BASH_REMATCH[1]}
+                elif [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
                     argv+=( "+${BASH_REMATCH[2]}" )
                     f=${BASH_REMATCH[1]}
                 fi
@@ -1305,7 +1321,10 @@ To start the server in Emacs, type "M-x server-start".'
             done
         else
             for f in "$@"; do
-                if [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
+                if [[ ."$f" =~ ^\.(.*):([0-9]+:[0-9]+)$ ]]; then
+                    argv+=( "+${BASH_REMATCH[2]}" )
+                    f=${BASH_REMATCH[1]}
+                elif [[ ."$f" =~ ^\.(.*):([0-9]+)$ ]]; then
                     argv+=( "+${BASH_REMATCH[2]}" )
                     f=${BASH_REMATCH[1]}
                 fi
@@ -1341,7 +1360,7 @@ To start the server in Emacs, type "M-x server-start".'
         if test -x "$WMCTRL_CMD"; then
             if $WMCTRL_CMD -l | $GREP_CMD -q 'GNU Emacs'; then
                 $WMCTRL_CMD -a 'GNU Emacs'
-            else
+            elif test ."$($WMCTRL_CMD -l)" != .''; then
                 eval $WMCTRL_CMD ${window_name:+"-a ${window_name##*/}"}
             fi
         elif test -x "$OSASCRIPT_CMD"; then
